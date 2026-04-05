@@ -102,7 +102,7 @@ typedef enum {
 
 typedef union {
     char* s;
-    int32_t value_int;
+    uint64_t value_int;
     float value_float;
     char value_char;
 } LexerTokenData;
@@ -377,8 +377,8 @@ typedef struct Type Type;
 struct Type {
     TypeTag tag;
     union {
-        struct { int bits; } int_t;
-        struct { int bits; } float_t; 
+        struct { uint64_t bits; } int_t;
+        struct { uint64_t bits; } float_t; 
         struct { Type* inner; } array_t;
         struct { char* name; } custom;
     } data;

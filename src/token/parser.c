@@ -112,8 +112,8 @@ Stmts parser_stmt(Parser* self) {
 
 Type parser_type(Parser* self) {
     switch (parser_current(self).tag) {
-        case Ints: { int bits = parser_current(self).data.value_int; parser_advance(self); return (Type){ .tag = Type_Int,   .data = { .int_t   = { .bits = bits } } }; }
-        case Floats: { int bits = parser_current(self).data.value_int; parser_advance(self); return (Type){ .tag = Type_Float, .data = { .float_t = { .bits = bits } } }; }
+        case Ints: { uint64_t bits = parser_current(self).data.value_int; parser_advance(self); return (Type){ .tag = Type_Int,   .data = { .int_t   = { .bits = bits } } }; }
+        case Floats: { uint64_t bits = parser_current(self).data.value_int; parser_advance(self); return (Type){ .tag = Type_Float, .data = { .float_t = { .bits = bits } } }; }
         case Chars: { parser_advance(self); return (Type){ .tag = Type_Char }; }
         case Strings: { parser_advance(self); return (Type){ .tag = Type_Str  }; }
         case Trues:

@@ -4,7 +4,7 @@
 
 Lexer lexer_new(const char* source) {
     return (Lexer){
-        .tokens   = malloc(sizeof(LexerToken) * 64),
+        .tokens   = checked_malloc(sizeof(LexerToken) * 64),
         .count    = 0,
         .capacity = 64,
         .source   = source,
@@ -16,7 +16,7 @@ Lexer lexer_new(const char* source) {
 void lexer_push(Lexer* self, LexerToken token) {
     if (self->count >= self->capacity) {
         self->capacity *= 2;
-        self->tokens = realloc(self->tokens, sizeof(LexerToken) * self->capacity);
+        self->tokens = checked_realloc(self->tokens, sizeof(LexerToken) * self->capacity);
     }
 
     self->tokens[self->count++] = token;
@@ -154,7 +154,7 @@ char* lexer_read_word(Lexer* self) {
     }
 
     size_t len = self->pos - start;
-    char* word = malloc(len + 1);
+    char* word = checked_malloc(len + 1);
     memcpy(word, self->source + start, len);
     word[len] = '\0';
 
