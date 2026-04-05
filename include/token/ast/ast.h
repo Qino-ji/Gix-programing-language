@@ -1,4 +1,4 @@
-#include "import.h"
+#include "../../import.h"
 
 typedef struct Stmts Stmts;
 typedef struct Exprs Exprs;
@@ -158,8 +158,8 @@ typedef struct {
 typedef struct {
     LexerToken top;
     const char* source;
+    const char* cur;
     LineStarts line_starts;
-    size_t pos;
 } Lexer;
 
 
