@@ -1,0 +1,4 @@
+public trait Iterator:
+    type Item
+    func next(var self): Option[Item]
+end

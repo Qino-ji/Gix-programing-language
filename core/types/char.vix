@@ -1,0 +1,17 @@
+import core
+
+class char():
+    public func char_to_string(self): String
+        var s = String {
+            data = alloc_mem(2) as ptr[char],
+            len  = 1,
+            cap  = 2,
+        }
+        s.data[0] = self
+        return s
+    end
+
+    public func is_alpha(self): bool
+        return (self >= 'a' and self <= 'z') or (self >= 'A' and self <= 'Z')
+    end
+end

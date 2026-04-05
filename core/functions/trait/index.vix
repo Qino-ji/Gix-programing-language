@@ -1,0 +1,4 @@
+public trait Index[T]:
+    func index(self, i: usize): T
+    func index_mut(var self, i: usize): &var T
+end

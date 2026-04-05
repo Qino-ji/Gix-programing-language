@@ -1,0 +1,35 @@
+import core
+
+class str():
+    public func load_u64(self: str, p: ptr[char], offset: usize): uint64
+        unsafe:
+            return (p[offset + 0] as uint64)        |
+                (p[offset + 1] as uint64) << 8   |
+                (p[offset + 2] as uint64) << 16  |
+                (p[offset + 3] as uint64) << 24  |
+                (p[offset + 4] as uint64) << 32  |
+                (p[offset + 5] as uint64) << 40  |
+                (p[offset + 6] as uint64) << 48  |
+                (p[offset + 7] as uint64) << 56
+        end
+    end
+
+    public func char_from_u8(self: str, v: uint8): char
+        unsafe:
+            return v as char
+        end
+    end
+
+    public func store_u64(self: str, p: ptr[char], offset: usize, val: uint64)
+        unsafe:
+            p[offset + 0] = self.char_from_u8((val       & 0xFF) as uint8)
+            p[offset + 1] = self.char_from_u8((val >> 8  & 0xFF) as uint8)
+            p[offset + 2] = self.char_from_u8((val >> 16 & 0xFF) as uint8)
+            p[offset + 3] = self.char_from_u8((val >> 24 & 0xFF) as uint8)
+            p[offset + 4] = self.char_from_u8((val >> 32 & 0xFF) as uint8)
+            p[offset + 5] = self.char_from_u8((val >> 40 & 0xFF) as uint8)
+            p[offset + 6] = self.char_from_u8((val >> 48 & 0xFF) as uint8)
+            p[offset + 7] = self.char_from_u8((val >> 56 & 0xFF) as uint8)
+        end
+    end
+end

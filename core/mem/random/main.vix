@@ -1,0 +1,18 @@
+extern "C":
+    unsafe func rand(): int32
+    unsafe func srand(seed: uint32)
+    unsafe func time(t: ptr[int64]): int64
+end
+
+var random_initialized: bool = false
+
+public unsafe func random_u64(): uint64
+    if !random_initialized then
+        srand(time(null) as uint32)
+        random_initialized = true
+    end
+
+    var high = (rand() as uint64) << 32
+    var low = rand() as uint64
+    return high | low
+end

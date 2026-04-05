@@ -1,0 +1,31 @@
+@atom(bits = 64, signed = false)
+public type usize = int64
+
+@atom(bits = 32, signed = false)
+public type usize = int32
+
+@atom(bits = 16, signed = false)
+public type usize = int16
+
+@atom(bits = 8, signed = false)
+public type usize = int8
+
+// ================================= isize ================================= //
+@atom(bits = 64, signed = true)
+public type isize = int64
+
+@atom(bits = 32, signed = true)
+public type isize = int32
+
+@atom(bits = 16, signed = true)
+public type isize = int16
+
+@atom(bits = 8, signed = true)
+public type isize = int8
+// ================================ char & str ================================= //
+
+public struct str:
+    var ptr = ptr[char]
+    var len = int64
+end
+

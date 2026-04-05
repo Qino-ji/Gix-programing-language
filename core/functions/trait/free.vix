@@ -1,0 +1,3 @@
+public trait Free:
+    func free(var self)
+end

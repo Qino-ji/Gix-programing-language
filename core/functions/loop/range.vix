@@ -1,0 +1,32 @@
+struct Range:
+    var current = usize
+    var ended = usize
+end
+
+class Range():
+    public func init(start: usize, ended: usize): Range
+        return Range {
+            current = start,
+            ended = ended
+        }
+    end
+end
+
+class Iterator for Range:
+    type Item = usize
+    
+    func next(&var self): Option[usize]
+        if self.current < self.ended then
+            var value: usize = self.current
+            self.current += 1
+            // keep the Option type as Option[usize] (not Option[uint64])
+            return Some(value as usize)
+        else
+            return None
+        end
+    end
+end
+
+public func range(start: usize, ended: usize): Range
+    return Range(start, ended)
+end

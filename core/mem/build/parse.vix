@@ -1,0 +1,23 @@
+import core
+
+extern "C":
+    func strtod(nptr: ptr[const char], endptr: ptr[ptr[char]]): float64
+end
+
+public func parse_f64(s: String): Option[float64]
+    var start = s.c_str()
+    var end_ptr: ptr[char] = 0 as ptr[char]
+    var value = strtod(start, &end_ptr)
+
+    if end_ptr == start then
+        return None
+    end
+
+    unsafe:
+        if end_ptr[0] != '\0' then
+            return None
+        end
+    end
+
+    return Some(value)
+end

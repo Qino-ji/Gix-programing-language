@@ -1,0 +1,112 @@
+import core
+
+const func custom_length(input: ptr[char]): usize
+    var i: usize = 0
+
+    for x in input.chars() do
+        i += 1
+    end
+
+
+    return i
+end
+
+class str():
+    public func init(input: ptr[char]): str
+        return str {
+            ptr = input,
+            len = custom_length(input)
+        }
+    end
+
+    public func new(input: ptr[char]): str
+        return str {
+            ptr = input,
+            len = custom_length(input)
+        }
+    end
+
+    public func length(self: str): usize
+        return self.len
+    end
+
+    @operator("==")
+    public func eq(self: str, other: str): bool
+        if self.len != other.len then return false end
+        var i: usize = 0
+        unsafe:
+            while i < self.len do
+                if self.ptr[i] != other.ptr[i] then return false end
+                i += 1
+            end
+        end
+        return true
+    end
+
+    @operator("!=")
+    public func neq(self: str, other: str): bool
+        if self.len != other.len then return true end
+        var i: usize = 0
+        unsafe:
+            while i < self.len do
+                if self.ptr[i] != other.ptr[i] then return true end
+                i += 1
+            end
+        end
+        return false
+    end
+
+    @operator("<")
+    public func lt(self: str, other: str): bool
+        var i: usize = 0
+        unsafe:
+            while i < self.len and i < other.len do
+                if self.ptr[i] < other.ptr[i] then return true end
+                if self.ptr[i] > other.ptr[i] then return false end
+                i += 1
+            end
+        end
+        return self.len < other.len
+    end
+
+    @operator(">")
+    public func gt(self: str, other: str): bool
+        var i: usize = 0
+        unsafe:
+            while i < self.len and i < other.len do
+                if self.ptr[i] > other.ptr[i] then return true end
+                if self.ptr[i] < other.ptr[i] then return false end
+                i += 1
+            end
+        end
+        return self.len > other.len
+    end
+
+    @operator("<=")
+    public func lte(self: str, other: str): bool
+        if self.eq(other) then return true end
+        return self.lt(other)
+    end
+
+    @operator(">=")
+    public func gte(self: str, other: str): bool
+        if self.eq(other) then return true end
+        return self.gt(other)
+    end
+
+    
+    @operator("list")
+    public func index(self: str, i: usize): char
+        unsafe:
+            return self.ptr[i]
+        end
+    end
+
+    public func from_parts(input: ptr[char], len: usize): str
+        return str {
+            ptr = input,
+            len = len
+        }
+    end
+
+end
