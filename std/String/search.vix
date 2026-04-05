@@ -1,0 +1,16 @@
+class String():
+    func after(self, prefix: str): String
+        if self.len <= prefix.len then return String.new() end
+
+        var new_len: usize = self.len - prefix.len
+        var s = String {
+            data = alloc_mem(new_len + 1) as ptr[char],
+            len  = new_len,
+            cap  = new_len + 1,
+        }
+        unsafe:
+            memcpy(s.data as ptr[void], (self.data + prefix.len) as ptr[void], new_len)
+        end
+        return s
+    end
+end
