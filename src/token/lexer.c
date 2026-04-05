@@ -4,47 +4,47 @@
 
 Lexer lexer_new(const char* source) {
     return (Lexer){
-        .tokens   = checked_malloc(sizeof(LexerToken) * 64),
-        .count    = 0,
-        .capacity = 64,
         .source   = source,
-        .pos      = 0,
     };
 }
 
-
-void lexer_push(Lexer* self, LexerToken token) {
-    if (self->count >= self->capacity) {
-        self->capacity *= 2;
-        self->tokens = checked_realloc(self->tokens, sizeof(LexerToken) * self->capacity);
-    }
-
-    self->tokens[self->count++] = token;
-}
-
-void lexer_free(Lexer* self) {
-    free(self->tokens);
-
-    self->tokens = NULL;
-}
-
-
-char lexer_current(Lexer* self) {
+char lexer_current_char(Lexer* self) {
     return self->source[self->pos];
 }
 
-char lexer_peek(Lexer* self) {
+char lexer_peek_char(Lexer* self) {
     return self->source[self->pos + 1];
 }
 
-char lexer_advance(Lexer* self) {
-    return self->source[self->pos++];
+static char lexer_advance_char(Lexer* self) {
+    char ans = lexer_current_char(self);
+    if(ans=='\n'){
+        ARR_PUSH(self->line_starts,&self->source[++self->pos]);
+    }
+    return ans;
+}
+
+static void skip_whitespace(Lexer* self){
+    while(isspace(lexer_current_char(self))){
+        lexer_advance_char(self);
+    }
+}
+
+void skip_comments(Lexer* self){
+    skip_whitespace(self);
+    if(lexer_current_char(self)=='/'&&lexer_peek_char(self)=='/'){
+        while('\n'!=lexer_advance_char(self));
+        //recurse
+        skip_comments(self);
+    }
 }
 
 
 void Tokenize(Lexer* self) {
-    while (lexer_current(self) != '\0') {
-        char c = lexer_current(self);
+    skip_comments(self);
+
+    while (lexer_current_char(self) != '\0') {
+        char c = lexer_current_char(self);
         if (isalpha(c) || c == '_') lexer_words(self);
         else if (isdigit(c)) lexer_numbers(self);
         else if (c == '"') lexer_strings(self);
@@ -57,63 +57,63 @@ void Tokenize(Lexer* self) {
 }
 
 void lexer_chars(Lexer* self) {
-    char c = lexer_advance(self);
+    char c = lexer_advance_char(self);
 
     switch (c) {
-        case '+': if (lexer_current(self) == '=') { lexer_advance(self); lexer_push(self, (LexerToken){ .tag = PlusEqualss }); }    else { lexer_push(self, (LexerToken){ .tag = Plus }); }    break;
-        case '-': if (lexer_current(self) == '=') { lexer_advance(self); lexer_push(self, (LexerToken){ .tag = MinusEqualss }); }   else { lexer_push(self, (LexerToken){ .tag = Minuss }); }   break;
-        case '*': if (lexer_current(self) == '=') { lexer_advance(self); lexer_push(self, (LexerToken){ .tag = StarEqualss }); }    else { lexer_push(self, (LexerToken){ .tag = Stars }); }    break;
-        case '%': if (lexer_current(self) == '=') { lexer_advance(self); lexer_push(self, (LexerToken){ .tag = PercentEqualss }); } else { lexer_push(self, (LexerToken){ .tag = Percents }); } break;
-        case '=': if (lexer_current(self) == '=') { lexer_advance(self); lexer_push(self, (LexerToken){ .tag = DoubleEqualss }); }  else { lexer_push(self, (LexerToken){ .tag = Equalss }); }  break;
-        case '!': if (lexer_current(self) == '=') { lexer_advance(self); lexer_push(self, (LexerToken){ .tag = NotEqualss }); }     else { lexer_push(self, (LexerToken){ .tag = Bangs }); }     break;
-        case '^': if (lexer_current(self) == '=') { lexer_advance(self); lexer_push(self, (LexerToken){ .tag = CaretEqualss }); }   else { lexer_push(self, (LexerToken){ .tag = Carets }); }   break;
+        case '+': if (lexer_current_char(self) == '=') { lexer_advance_char(self); lexer_push(self, (LexerToken){ .tag = PlusEqualss }); }    else { lexer_push(self, (LexerToken){ .tag = Plus }); }    break;
+        case '-': if (lexer_current_char(self) == '=') { lexer_advance_char(self); lexer_push(self, (LexerToken){ .tag = MinusEqualss }); }   else { lexer_push(self, (LexerToken){ .tag = Minuss }); }   break;
+        case '*': if (lexer_current_char(self) == '=') { lexer_advance_char(self); lexer_push(self, (LexerToken){ .tag = StarEqualss }); }    else { lexer_push(self, (LexerToken){ .tag = Stars }); }    break;
+        case '%': if (lexer_current_char(self) == '=') { lexer_advance_char(self); lexer_push(self, (LexerToken){ .tag = PercentEqualss }); } else { lexer_push(self, (LexerToken){ .tag = Percents }); } break;
+        case '=': if (lexer_current_char(self) == '=') { lexer_advance_char(self); lexer_push(self, (LexerToken){ .tag = DoubleEqualss }); }  else { lexer_push(self, (LexerToken){ .tag = Equalss }); }  break;
+        case '!': if (lexer_current_char(self) == '=') { lexer_advance_char(self); lexer_push(self, (LexerToken){ .tag = NotEqualss }); }     else { lexer_push(self, (LexerToken){ .tag = Bangs }); }     break;
+        case '^': if (lexer_current_char(self) == '=') { lexer_advance_char(self); lexer_push(self, (LexerToken){ .tag = CaretEqualss }); }   else { lexer_push(self, (LexerToken){ .tag = Carets }); }   break;
 
         case '&':
-            if (lexer_current(self) == '&') { lexer_advance(self);  lexer_push(self, (LexerToken){ .tag = Ands }); }
-            else if (lexer_current(self) == '=') { lexer_advance(self); lexer_push(self, (LexerToken){ .tag = AmpersandEqualss }); }
+            if (lexer_current_char(self) == '&') { lexer_advance_char(self);  lexer_push(self, (LexerToken){ .tag = Ands }); }
+            else if (lexer_current_char(self) == '=') { lexer_advance_char(self); lexer_push(self, (LexerToken){ .tag = AmpersandEqualss }); }
             else { lexer_push(self, (LexerToken){ .tag = Ampersands }); } break;
 
         case '|':
-            if (lexer_current(self) == '|') { lexer_advance(self); lexer_push(self, (LexerToken){ .tag = Ors }); }
-            else if (lexer_current(self) == '=') { lexer_advance(self); lexer_push(self, (LexerToken){ .tag = PipeEqualss }); }
+            if (lexer_current_char(self) == '|') { lexer_advance_char(self); lexer_push(self, (LexerToken){ .tag = Ors }); }
+            else if (lexer_current_char(self) == '=') { lexer_advance_char(self); lexer_push(self, (LexerToken){ .tag = PipeEqualss }); }
             else  { lexer_push(self, (LexerToken){ .tag = Pipes }); } break;
 
         case '<':
-            if (lexer_current(self) == '=' ) { lexer_advance(self); lexer_push(self, (LexerToken){ .tag = LessEqualss }); }
-            else if (lexer_current(self) == '<' ) { lexer_advance(self); 
-            if (lexer_current(self) == '=') { lexer_advance(self); lexer_push(self, (LexerToken){ .tag = LeftShiftEqualss }); } 
+            if (lexer_current_char(self) == '=' ) { lexer_advance_char(self); lexer_push(self, (LexerToken){ .tag = LessEqualss }); }
+            else if (lexer_current_char(self) == '<' ) { lexer_advance_char(self); 
+            if (lexer_current_char(self) == '=') { lexer_advance_char(self); lexer_push(self, (LexerToken){ .tag = LeftShiftEqualss }); } 
             else { lexer_push(self, (LexerToken){ .tag = LeftShifts }); } }
             else { lexer_push(self, (LexerToken){ .tag = Lesses }); }
             break;
 
         case '>': 
-            if (lexer_current(self) == '=') { lexer_advance(self); lexer_push(self, (LexerToken){ .tag = GreaterEqualss }); }
-            else if (lexer_current(self) == '>') { lexer_advance(self); 
-            if (lexer_current(self) == '=') { lexer_advance(self); lexer_push(self, (LexerToken){ .tag = RightShiftEqualss }); } 
+            if (lexer_current_char(self) == '=') { lexer_advance_char(self); lexer_push(self, (LexerToken){ .tag = GreaterEqualss }); }
+            else if (lexer_current_char(self) == '>') { lexer_advance_char(self); 
+            if (lexer_current_char(self) == '=') { lexer_advance_char(self); lexer_push(self, (LexerToken){ .tag = RightShiftEqualss }); } 
             else { lexer_push(self, (LexerToken){ .tag = RightShifts }); } }
             else { lexer_push(self, (LexerToken){ .tag = Greaters }); } break;
 
         case '.':
-            if (lexer_current(self) == '.') { lexer_advance(self); 
-            if (lexer_current(self) == '.') { lexer_advance(self); lexer_push(self, (LexerToken){ .tag = TrippleDots }); } 
+            if (lexer_current_char(self) == '.') { lexer_advance_char(self); 
+            if (lexer_current_char(self) == '.') { lexer_advance_char(self); lexer_push(self, (LexerToken){ .tag = TrippleDots }); } 
             else { lexer_push(self, (LexerToken){ .tag = DoubleDots }); } }
             else { lexer_push(self, (LexerToken){ .tag = Dots }); }
             break;
 
         case '/':
-            if (lexer_current(self) == '/') { 
-                while (lexer_current(self) != '\n' && lexer_current(self) != '\0') 
-                lexer_advance(self); 
+            if (lexer_current_char(self) == '/') { 
+                while (lexer_current_char(self) != '\n' && lexer_current_char(self) != '\0') 
+                lexer_advance_char(self); 
             }
         
-            else if (lexer_current(self) == '*') { lexer_advance(self); 
-                while (!(lexer_current(self) == '*' && lexer_peek(self) == '/')) 
-                    lexer_advance(self); 
-                    lexer_advance(self); 
-                    lexer_advance(self); 
+            else if (lexer_current_char(self) == '*') { lexer_advance_char(self); 
+                while (!(lexer_current_char(self) == '*' && lexer_peek_char(self) == '/')) 
+                    lexer_advance_char(self); 
+                    lexer_advance_char(self); 
+                    lexer_advance_char(self); 
                 }
 
-            else if (lexer_current(self) == '=') { lexer_advance(self); lexer_push(self, (LexerToken){ .tag = SlashEqualss }); }
+            else if (lexer_current_char(self) == '=') { lexer_advance_char(self); lexer_push(self, (LexerToken){ .tag = SlashEqualss }); }
             else { lexer_push(self, (LexerToken){ .tag = Slashs }); } break;
 
         case '~':  lexer_push(self, (LexerToken){ .tag = Tildes });        break;

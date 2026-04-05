@@ -4,7 +4,7 @@ typedef struct Stmts Stmts;
 typedef struct Exprs Exprs;
 
 typedef enum {
-    Plus,
+    Plus=1,
     Minuss,
     Stars,
     Slashs,
@@ -108,15 +108,57 @@ typedef union {
 } LexerTokenData;
 
 typedef struct {
+    const char* start;
+    const char* end;
+}SourceRange;
+
+typedef struct {
+    const char** data;//last line is array end ie \0
+    size_t len;
+    size_t cap;
+} LineStarts;
+
+static inline size_t get_line_num(const LineStarts* starts, uintptr_t tgt) {
+    if (!starts || !starts->data || starts->len < 2) {
+        return (size_t)-1;
+    }
+
+    uintptr_t first = (uintptr_t)starts->data[0];
+    uintptr_t end   = (uintptr_t)starts->data[starts->len - 1];
+
+    // Outside the covered buffer range.
+    if (tgt < first || tgt >= end) {
+        return (size_t)-1;
+    }
+
+    // Search among actual line starts: [0, len-2]
+    size_t lo = 0;
+    size_t hi = starts->len - 1; // exclusive upper bound for line index + 1
+
+    while (lo + 1 < hi) {
+        size_t mid = lo + (hi - lo) / 2;
+        uintptr_t mid_start = (uintptr_t)starts->data[mid];
+
+        if (tgt < mid_start) {
+            hi = mid;
+        } else {
+            lo = mid;
+        }
+    }
+
+    return lo;
+}
+
+typedef struct {
     LexerTokenTag tag;
     LexerTokenData data;
+    SourceRange debug;
 } LexerToken;
 
 typedef struct {
-    LexerToken* tokens;
-    size_t count;
-    size_t capacity;
+    LexerToken top;
     const char* source;
+    LineStarts line_starts;
     size_t pos;
 } Lexer;
 
