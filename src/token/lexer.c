@@ -1,8 +1,6 @@
-#include "../../include/token/lexer.h"
-#include "../../include/import.h"
+#include "token/lexer.h"
+#include "import.h"
 
-static char lexer_current_char(Lexer* self);
-static char lexer_peek_char(Lexer* self);
 static char lexer_advance_char(Lexer* self);
 static void skip_whitespace(Lexer* self);
 static void compue_top(Lexer* self);
@@ -36,16 +34,8 @@ void lexer_advance(Lexer* self){
     self->cur = lexer_peek(self).debug.end;
 }
 
-static char lexer_current_char(Lexer* self) {
-    return self->cur[0];
-}
-
-static char lexer_peek_char(Lexer* self) {
-    return self->cur[1];
-}
-
 static char lexer_advance_char(Lexer* self) {
-    char ans = lexer_current_char(self);
+    char ans = self->cur[0];
     if(ans=='\n'){
         ARR_PUSH(self->line_starts, self->cur + 1);
     }
@@ -54,14 +44,14 @@ static char lexer_advance_char(Lexer* self) {
 }
 
 static void skip_whitespace(Lexer* self){
-    while(isspace(lexer_current_char(self))){
+    while(isspace(self->cur[0])){
         lexer_advance_char(self);
     }
 }
 
 void skip_comments(Lexer* self){
     skip_whitespace(self);
-    if(lexer_current_char(self)=='/'&&lexer_peek_char(self)=='/'){
+    if(self->cur[0]=='/'&&self->cur[1]=='/'){
         while('\n'!=lexer_advance_char(self));
         //recurse
         skip_comments(self);
@@ -75,7 +65,7 @@ static void compue_top(Lexer* self) {
 
     self->top.debug.start = self->cur;
 
-    char c = lexer_current_char(self);
+    char c = self->cur[0];
     if(c == '\0'){}
     else if (isalpha(c) || c == '_') {lexer_words(self);}
     else if (isdigit(c)) {lexer_numbers(self);}
@@ -90,60 +80,60 @@ static void lexer_chars(Lexer* self) {
     char c = lexer_advance_char(self);
 
     switch (c) {
-        case '+': if (lexer_current_char(self) == '=') { lexer_advance_char(self); self->top.tag = PlusEqualss; }    else { self->top.tag = Plus; }    break;
-        case '-': if (lexer_current_char(self) == '=') { lexer_advance_char(self); self->top.tag = MinusEqualss; }   else { self->top.tag = Minuss; }   break;
-        case '*': if (lexer_current_char(self) == '=') { lexer_advance_char(self); self->top.tag = StarEqualss; }    else { self->top.tag = Stars; }    break;
-        case '%': if (lexer_current_char(self) == '=') { lexer_advance_char(self); self->top.tag = PercentEqualss; } else { self->top.tag = Percents; } break;
-        case '=': if (lexer_current_char(self) == '=') { lexer_advance_char(self); self->top.tag = DoubleEqualss; }  else { self->top.tag = Equalss; }  break;
-        case '!': if (lexer_current_char(self) == '=') { lexer_advance_char(self); self->top.tag = NotEqualss; }     else { self->top.tag = Bangs; }     break;
-        case '^': if (lexer_current_char(self) == '=') { lexer_advance_char(self); self->top.tag = CaretEqualss; }   else { self->top.tag = Carets; }   break;
+        case '+': if (self->cur[0] == '=') { lexer_advance_char(self); self->top.tag = PlusEqualss; }    else { self->top.tag = Plus; }    break;
+        case '-': if (self->cur[0] == '=') { lexer_advance_char(self); self->top.tag = MinusEqualss; }   else { self->top.tag = Minuss; }   break;
+        case '*': if (self->cur[0] == '=') { lexer_advance_char(self); self->top.tag = StarEqualss; }    else { self->top.tag = Stars; }    break;
+        case '%': if (self->cur[0] == '=') { lexer_advance_char(self); self->top.tag = PercentEqualss; } else { self->top.tag = Percents; } break;
+        case '=': if (self->cur[0] == '=') { lexer_advance_char(self); self->top.tag = DoubleEqualss; }  else { self->top.tag = Equalss; }  break;
+        case '!': if (self->cur[0] == '=') { lexer_advance_char(self); self->top.tag = NotEqualss; }     else { self->top.tag = Bangs; }     break;
+        case '^': if (self->cur[0] == '=') { lexer_advance_char(self); self->top.tag = CaretEqualss; }   else { self->top.tag = Carets; }   break;
 
         case '&':
-            if (lexer_current_char(self) == '&') { lexer_advance_char(self);  self->top.tag = Ands; }
-            else if (lexer_current_char(self) == '=') { lexer_advance_char(self); self->top.tag = AmpersandEqualss; }
+            if (self->cur[0] == '&') { lexer_advance_char(self);  self->top.tag = Ands; }
+            else if (self->cur[0] == '=') { lexer_advance_char(self); self->top.tag = AmpersandEqualss; }
             else { self->top.tag = Ampersands; } break;
 
         case '|':
-            if (lexer_current_char(self) == '|') { lexer_advance_char(self); self->top.tag = Ors; }
-            else if (lexer_current_char(self) == '=') { lexer_advance_char(self); self->top.tag = PipeEqualss; }
+            if (self->cur[0] == '|') { lexer_advance_char(self); self->top.tag = Ors; }
+            else if (self->cur[0] == '=') { lexer_advance_char(self); self->top.tag = PipeEqualss; }
             else  { self->top.tag = Pipes; } break;
 
         case '<':
-            if (lexer_current_char(self) == '=' ) { lexer_advance_char(self); self->top.tag = LessEqualss; }
-            else if (lexer_current_char(self) == '<' ) { lexer_advance_char(self); 
-            if (lexer_current_char(self) == '=') { lexer_advance_char(self); self->top.tag = LeftShiftEqualss; } 
+            if (self->cur[0] == '=' ) { lexer_advance_char(self); self->top.tag = LessEqualss; }
+            else if (self->cur[0] == '<' ) { lexer_advance_char(self); 
+            if (self->cur[0] == '=') { lexer_advance_char(self); self->top.tag = LeftShiftEqualss; } 
             else { self->top.tag = LeftShifts; } }
             else { self->top.tag = Lesses; }
             break;
 
         case '>': 
-            if (lexer_current_char(self) == '=') { lexer_advance_char(self); self->top.tag = GreaterEqualss; }
-            else if (lexer_current_char(self) == '>') { lexer_advance_char(self); 
-            if (lexer_current_char(self) == '=') { lexer_advance_char(self); self->top.tag = RightShiftEqualss; } 
+            if (self->cur[0] == '=') { lexer_advance_char(self); self->top.tag = GreaterEqualss; }
+            else if (self->cur[0] == '>') { lexer_advance_char(self); 
+            if (self->cur[0] == '=') { lexer_advance_char(self); self->top.tag = RightShiftEqualss; } 
             else { self->top.tag = RightShifts; } }
             else { self->top.tag = Greaters; } break;
 
         case '.':
-            if (lexer_current_char(self) == '.') { lexer_advance_char(self); 
-            if (lexer_current_char(self) == '.') { lexer_advance_char(self); self->top.tag = TrippleDots; } 
+            if (self->cur[0] == '.') { lexer_advance_char(self); 
+            if (self->cur[0] == '.') { lexer_advance_char(self); self->top.tag = TrippleDots; } 
             else { self->top.tag = DoubleDots; } }
             else { self->top.tag = Dots; }
             break;
 
         case '/':
-            if (lexer_current_char(self) == '/') { 
-                while (lexer_current_char(self) != '\n' && lexer_current_char(self) != '\0') 
+            if (self->cur[0] == '/') { 
+                while (self->cur[0] != '\n' && self->cur[0] != '\0') 
                 lexer_advance_char(self); 
             }
         
-            else if (lexer_current_char(self) == '*') { lexer_advance_char(self); 
-                while (!(lexer_current_char(self) == '*' && lexer_peek_char(self) == '/')) 
+            else if (self->cur[0] == '*') { lexer_advance_char(self); 
+                while (!(self->cur[0] == '*' && self->cur[1] == '/')) 
                     lexer_advance_char(self); 
                     lexer_advance_char(self); 
                     lexer_advance_char(self); 
                 }
 
-            else if (lexer_current_char(self) == '=') { lexer_advance_char(self); self->top.tag = SlashEqualss; }
+            else if (self->cur[0] == '=') { lexer_advance_char(self); self->top.tag = SlashEqualss; }
             else { self->top.tag = Slashs; } break;
 
         case '~':  self->top.tag = Tildes;        break;
@@ -250,13 +240,13 @@ static void lexer_words(Lexer* self) {
 static void lexer_numbers(Lexer* self) {
     const char* start = self->cur;
 
-    while (isdigit(lexer_current_char(self))) {
+    while (isdigit(self->cur[0])) {
         lexer_advance_char(self);
     }
 
-    if (lexer_current_char(self) == '.' && isdigit(lexer_peek_char(self))) {
+    if (self->cur[0] == '.' && isdigit(self->cur[1])) {
         lexer_advance_char(self);
-        while (isdigit(lexer_current_char(self))) {
+        while (isdigit(self->cur[0])) {
             lexer_advance_char(self);
         }
 
@@ -283,8 +273,8 @@ static void lexer_strings(Lexer* self) {
     lexer_advance_char(self);
     const char* start = self->cur;
 
-    while (lexer_current_char(self) != '"' && lexer_current_char(self) != '\0') {
-        if (lexer_current_char(self) == '\\' && lexer_peek_char(self) != '\0') {
+    while (self->cur[0] != '"' && self->cur[0] != '\0') {
+        if (self->cur[0] == '\\' && self->cur[1] != '\0') {
             lexer_advance_char(self);
         }
         lexer_advance_char(self);
@@ -297,7 +287,7 @@ static void lexer_strings(Lexer* self) {
     self->top.tag = Strings;
     self->top.data.s = value;
 
-    if (lexer_current_char(self) == '"') {
+    if (self->cur[0] == '"') {
         lexer_advance_char(self);
     }
 }
@@ -305,19 +295,19 @@ static void lexer_strings(Lexer* self) {
 static void lexer_char_literal(Lexer* self) {
     lexer_advance_char(self);
 
-    char value = lexer_current_char(self);
+    char value = self->cur[0];
     if (value == '\\') {
         lexer_advance_char(self);
-        value = lexer_current_char(self);
+        value = self->cur[0];
     }
 
     self->top.tag = Chars;
     self->top.data.value_char = value;
 
-    if (lexer_current_char(self) != '\0') {
+    if (self->cur[0] != '\0') {
         lexer_advance_char(self);
     }
-    if (lexer_current_char(self) == '\'') {
+    if (self->cur[0] == '\'') {
         lexer_advance_char(self);
     }
 }
