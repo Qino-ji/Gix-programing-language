@@ -1,4 +1,4 @@
-#include "..\..\import.h"
+#include "import.h"
 
 typedef struct Stmts Stmts;
 typedef struct Exprs Exprs;

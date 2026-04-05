@@ -1,5 +1,5 @@
-#include ".\ast\ast.h"
-#include "..\import.h"
+#include "token/ast/ast.h"
+#include "import.h"
 
 typedef struct {
     LexerToken* tokens;
