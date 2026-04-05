@@ -9,16 +9,19 @@ static void compue_top(Lexer* self);
 static void lexer_chars(Lexer* self);
 static char* lexer_read_word(Lexer* self);
 static void lexer_words(Lexer* self);
-static void lexer_types(Lexer* self);
 static void lexer_numbers(Lexer* self);
 static void lexer_strings(Lexer* self);
 static void lexer_char_literal(Lexer* self);
 
 Lexer lexer_new(const char* source) {
-    return (Lexer){
+    Lexer ans = (Lexer){
         .source   = source,
         .cur   = source,
-    };
+    };  
+    ARR_PUSH(ans.line_starts, ans.cur);
+
+
+    return ans;
 }
 
 LexerToken lexer_peek(Lexer* self){
@@ -44,8 +47,9 @@ static char lexer_peek_char(Lexer* self) {
 static char lexer_advance_char(Lexer* self) {
     char ans = lexer_current_char(self);
     if(ans=='\n'){
-        ARR_PUSH(self->line_starts,*++self->cur);
+        ARR_PUSH(self->line_starts, self->cur + 1);
     }
+    if (ans != '\0') self->cur++;
     return ans;
 }
 
@@ -228,28 +232,92 @@ static void lexer_words(Lexer* self) {
     else if (strcmp(word, "false")    == 0) self->top.tag = Falses;
     else if (strcmp(word, "continue") == 0) self->top.tag = Continues;
     else if (strcmp(word, "break")    == 0) self->top.tag = Breaks;
+    else if (strcmp(word, "int")      == 0) { self->top.tag = Ints; self->top.data.value_int = 32; }
+    else if (strcmp(word, "int8")     == 0) { self->top.tag = Ints; self->top.data.value_int = 8; }
+    else if (strcmp(word, "int16")    == 0) { self->top.tag = Ints; self->top.data.value_int = 16; }
+    else if (strcmp(word, "int32")    == 0) { self->top.tag = Ints; self->top.data.value_int = 32; }
+    else if (strcmp(word, "int64")    == 0) { self->top.tag = Ints; self->top.data.value_int = 64; }
+    else if (strcmp(word, "float")    == 0) { self->top.tag = Floats; self->top.data.value_int = 32; }
+    else if (strcmp(word, "float32")  == 0) { self->top.tag = Floats; self->top.data.value_int = 32; }
+    else if (strcmp(word, "float64")  == 0) { self->top.tag = Floats; self->top.data.value_int = 64; }
+    else if (strcmp(word, "char")     == 0) { self->top.tag = Chars; self->top.data.value_int = 8; }
+    else if (strcmp(word, "string")   == 0) { self->top.tag = Strings; self->top.data.value_int = 0; }
     else { self->top.tag = Identifier; self->top.data.s = word; return; }
 
     free(word);
 }
 
-static void lexer_types(Lexer* self) {
-    char* word = lexer_read_word(self);
+static void lexer_numbers(Lexer* self) {
+    const char* start = self->cur;
 
-    if (strcmp(word, "int")     == 0) { self->top.tag = Ints; self->top.data.value_int = 32; }
-    else if (strcmp(word, "int8")    == 0) { self->top.tag = Ints; self->top.data.value_int = 8; }
-    else if (strcmp(word, "int16")   == 0) { self->top.tag = Ints; self->top.data.value_int = 16; }
-    else if (strcmp(word, "int32")   == 0) { self->top.tag = Ints; self->top.data.value_int = 32; }
-    else if (strcmp(word, "int64")   == 0) { self->top.tag = Ints; self->top.data.value_int = 64; }
-    else if (strcmp(word, "float")   == 0) { self->top.tag = Floats; self->top.data.value_int = 32; }
-    else if (strcmp(word, "float32") == 0) { self->top.tag = Floats; self->top.data.value_int = 32; }
-    else if (strcmp(word, "float64") == 0) { self->top.tag = Floats; self->top.data.value_int = 64; }
-    else if (strcmp(word, "char")    == 0) { self->top.tag = Chars; self->top.data.value_int = 8; }
-    else if (strcmp(word, "string")  == 0) { self->top.tag = Strings; self->top.data.value_int = 0; }
-    else {
-        // Is not a type error handling...
+    while (isdigit(lexer_current_char(self))) {
+        lexer_advance_char(self);
+    }
+
+    if (lexer_current_char(self) == '.' && isdigit(lexer_peek_char(self))) {
+        lexer_advance_char(self);
+        while (isdigit(lexer_current_char(self))) {
+            lexer_advance_char(self);
+        }
+
+        size_t len = (size_t)(self->cur - start);
+        char* value = checked_malloc(len + 1);
+        memcpy(value, start, len);
+        value[len] = '\0';
+        self->top.tag = Floats;
+        self->top.data.value_float = strtof(value, NULL);
+        free(value);
         return;
     }
 
-    free(word);
+    size_t len = (size_t)(self->cur - start);
+    char* value = checked_malloc(len + 1);
+    memcpy(value, start, len);
+    value[len] = '\0';
+    self->top.tag = Ints;
+    self->top.data.value_int = strtoull(value, NULL, 10);
+    free(value);
+}
+
+static void lexer_strings(Lexer* self) {
+    lexer_advance_char(self);
+    const char* start = self->cur;
+
+    while (lexer_current_char(self) != '"' && lexer_current_char(self) != '\0') {
+        if (lexer_current_char(self) == '\\' && lexer_peek_char(self) != '\0') {
+            lexer_advance_char(self);
+        }
+        lexer_advance_char(self);
+    }
+
+    size_t len = (size_t)(self->cur - start);
+    char* value = checked_malloc(len + 1);
+    memcpy(value, start, len);
+    value[len] = '\0';
+    self->top.tag = Strings;
+    self->top.data.s = value;
+
+    if (lexer_current_char(self) == '"') {
+        lexer_advance_char(self);
+    }
+}
+
+static void lexer_char_literal(Lexer* self) {
+    lexer_advance_char(self);
+
+    char value = lexer_current_char(self);
+    if (value == '\\') {
+        lexer_advance_char(self);
+        value = lexer_current_char(self);
+    }
+
+    self->top.tag = Chars;
+    self->top.data.value_char = value;
+
+    if (lexer_current_char(self) != '\0') {
+        lexer_advance_char(self);
+    }
+    if (lexer_current_char(self) == '\'') {
+        lexer_advance_char(self);
+    }
 }
