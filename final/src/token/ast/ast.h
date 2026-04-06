@@ -107,19 +107,36 @@ typedef struct {
 } EnumField;
 
 typedef struct {
+    const char* file;
+    size_t line;
+    size_t col;
+} SourcePos;
+
+typedef struct {
     const char* start;
     const char* end;
+    SourcePos pos;
 } SourceRange;
 
 typedef struct {
     LexerTokenTag tag;
     SourceRange   range;
+    union {
+        uint64_t value_int;
+        float value_float;
+        char value_char;
+        char* s;
+    } data;
 } LexerToken;
 
 typedef struct {
     const char* source;
-    size_t pos;
-    LexerToken peek;
+    const char* cur;
+    LexerToken top;
+    SourcePos pos;
+    const char** line_starts;
+    size_t line_count;
+    size_t line_cap;
 } Lexer;
 
 typedef enum {
