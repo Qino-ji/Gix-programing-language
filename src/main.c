@@ -1,6 +1,6 @@
-#include ".\include\import.h"
-#include ".\include\register.h"
-#include ".\include\type.h"
+#include "import.h"
+#include "register.h"
+#include "type.h"
 char*       read_file_to_string(const char* path);
 LexerToken* lex_all(const char* source, size_t* out_count);
 void        print_expression(Exprs expr, int depth);

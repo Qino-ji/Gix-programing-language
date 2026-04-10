@@ -1,5 +1,5 @@
 #include "./ast/ast.h"
-#include "..\include\import.h"
+#include "import.h"
 
 bool range_eq(SourceRange r, const char* str) {
     size_t len = r.end - r.start;
