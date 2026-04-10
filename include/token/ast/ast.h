@@ -7,8 +7,6 @@ typedef struct Stmts Stmts;
 typedef struct Type Type;
 typedef struct Exprs Exprs;
 
-#define ARR(T) struct { T* data; size_t len; size_t cap; }
-
 typedef enum {
     Plus = 1,
     Minuss,
@@ -168,11 +166,9 @@ typedef struct {
 typedef struct {
     const char* source;
     const char* cur;
-    const char* file;
+    size_t file_id;
     LexerToken top;
     LineStarts line_starts;
-    size_t line_count;
-    size_t line_cap;
 } Lexer;
 
 typedef enum {
