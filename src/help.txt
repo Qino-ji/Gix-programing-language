@@ -1,0 +1,6 @@
+Hello, manager. I left for you this file include how to use the compile and ton other:
+- How to compile: "gcc src/main.c src/token/parser.c src/token/lexer.c -Isrc -std=c11 -Wall -Wextra -o app" to executable
+- How to compile vix code: ".\app run file.vix"
+
+The changes are fixing memory leaks/bugs and making sure all works and in main.c you'll see i added a tests so thos just for testing only.
+I'll include the generic checker tommorrow. Parser is all working.
