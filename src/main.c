@@ -1,20 +1,12 @@
 #include "import.h"
 #include "register.h"
+#include "token/lexer.h"
+#include "token/parser.h"
 #include "type.h"
 char*       read_file_to_string(const char* path);
 LexerToken* lex_all(const char* source, size_t* out_count);
 void        print_expression(Exprs expr, int depth);
 void        print_statement(Stmts stmt, int depth);
-
-Lexer      lexer_new(const char* source);
-LexerToken lexer_peek(Lexer* self);
-void       lexer_advance(Lexer* self);
-
-Parser     parser_new(LexerToken* tokens);
-LexerToken parser_current(Parser* self);
-LexerToken parser_advance(Parser* self);
-Stmts      parser_stmt(Parser* self);
-Exprs      parser_expr(Parser* self);
 
 Register       register_new(Register* parent);
 void           register_free(Register* reg);

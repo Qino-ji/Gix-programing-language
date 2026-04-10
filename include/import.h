@@ -10,13 +10,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
-static inline char* strndup(const char* s, size_t n) {
-    char* p = malloc(n + 1);
-    if (p) { memcpy(p, s, n); p[n] = '\0'; }
-    return p;
-}
-
 static inline void* checked_malloc(size_t size) {
     void* ptr = malloc(size);
     assert(ptr != NULL);

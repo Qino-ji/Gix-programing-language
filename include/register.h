@@ -2,8 +2,7 @@
 #define REGISTER_H
 
 #include "uthash.h"
-#include "../token/ast/ast.h"
-#include "uthash.h"
+#include "token/ast/ast.h"
 
 typedef enum {
     Reg_Var,

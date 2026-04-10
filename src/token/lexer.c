@@ -1,5 +1,4 @@
-#include "..\include\import.h"
-#include "./ast/ast.h"
+#include "token/lexer.h"
 
 
 static char lexer_advance_char(Lexer* self);

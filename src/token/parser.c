@@ -1,5 +1,4 @@
-#include "./ast/ast.h"
-#include "import.h"
+#include "token/parser.h"
 
 bool range_eq(SourceRange r, const char* str) {
     size_t len = r.end - r.start;

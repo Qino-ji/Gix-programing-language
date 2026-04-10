@@ -1,8 +1,13 @@
-#include "../../import.h"
+#ifndef VIX_TOKEN_AST_H
+#define VIX_TOKEN_AST_H
+
+#include "import.h"
 
 typedef struct Stmts Stmts;
 typedef struct Type Type;
 typedef struct Exprs Exprs;
+
+#define ARR(T) struct { T* data; size_t len; size_t cap; }
 
 typedef enum {
     Plus = 1,
@@ -102,11 +107,6 @@ typedef enum {
 } LexerTokenTag;
 
 typedef struct {
-    const char* start;
-    const char* end;
-} SourceRange;
-
-typedef struct {
     const char** data;
     size_t len;
     size_t cap;
@@ -118,7 +118,7 @@ static inline size_t get_line_num(const LineStarts* starts, uintptr_t tgt) {
     }
 
     uintptr_t first = (uintptr_t)starts->data[0];
-    uintptr_t end = (uintptr_t)starts->data[starts->len - 1];
+    uintptr_t end   = (uintptr_t)starts->data[starts->len - 1];
 
     if (tgt < first || tgt >= end) {
         return (size_t)-1;
@@ -141,6 +141,23 @@ static inline size_t get_line_num(const LineStarts* starts, uintptr_t tgt) {
     return lo;
 }
 
+typedef struct {
+    const char* file;
+    size_t line;
+    size_t col;
+} SourcePos;
+
+typedef struct {
+    const char* start;
+    const char* end;
+    SourcePos pos;
+} SourceRange;
+
+typedef struct {
+    SourceRange first;
+    SourceRange second;
+} EnumField;
+
 typedef union {
     uint64_t value_int;
     float value_float;
@@ -158,7 +175,10 @@ typedef struct {
     const char* source;
     const char* cur;
     LexerToken top;
+    SourcePos pos;
     LineStarts line_starts;
+    size_t line_count;
+    size_t line_cap;
 } Lexer;
 
 typedef enum {
@@ -198,15 +218,15 @@ typedef struct {
 } Pattern;
 
 typedef struct {
-    SourceRange* first;
-    SourceRange* second;
-} EnumField;
-
-typedef struct {
     SourceRange name;
     SourceRange c_type;
     VarMode mode;
 } Param;
+
+typedef struct {
+    LexerTokenTag op;
+    SourceRange function;
+} Operation;
 
 typedef struct {
     SourceRange name;
@@ -217,6 +237,8 @@ typedef struct {
     size_t body_count;
     bool is_pub;
     bool is_unsafe;
+    bool has_operation;
+    Operation operation;
     SourceRange range;
 } FunctionMethod;
 
@@ -350,13 +372,21 @@ typedef enum {
     Stmt_Locals,
     Stmt_Consts,
     Stmt_ExprStmt,
+    Stmt_Assigns,
 } StmtsTag;
+
+typedef enum {
+    ClassAttach_None,
+    ClassAttach_Struct,
+    ClassAttach_Enum,
+} ClassAttachTag;
 
 struct Stmts {
     StmtsTag tag;
     union {
+        struct { Exprs target; LexerTokenTag op; Exprs value; SourceRange range; } assigns;
         struct { SourceRange name; SourceRange* generic_params; size_t generic_params_count; Param* params; size_t params_count; SourceRange return_type; Stmts* body; size_t body_count; bool is_pub; bool is_unsafe; SourceRange range; } functions;
-        struct { SourceRange name; SourceRange* generic_params; size_t generic_params_count; Param* class_params; size_t class_params_count; StructParam* fields; size_t fields_count; FunctionMethod* methods; size_t methods_count; SourceRange parent; SourceRange* traits; size_t traits_count; bool is_pub; SourceRange range; } classes;
+        struct { SourceRange name; SourceRange* generic_params; size_t generic_params_count; Param* class_params; size_t class_params_count; StructParam* fields; size_t fields_count; FunctionMethod* methods; size_t methods_count; SourceRange parent; SourceRange* traits; size_t traits_count; bool is_pub; SourceRange range; bool has_attached; ClassAttachTag attached_tag; StructParam* attached_fields; size_t attached_fields_count; } classes;
         struct { SourceRange name; TraitMethod* methods; size_t methods_count; bool is_pub; SourceRange range; } traits;
         struct { SourceRange name; SourceRange* generic_params; size_t generic_params_count; StructParam* fields; size_t fields_count; bool is_pub; SourceRange range; } structs;
         struct { SourceRange name; SourceRange* generic_params; size_t generic_params_count; EnumVariant* variants; size_t variants_count; bool is_pub; SourceRange range; } enums;
@@ -394,3 +424,5 @@ struct Type {
         struct { SourceRange name; } custom;
     } data;
 };
+
+#endif

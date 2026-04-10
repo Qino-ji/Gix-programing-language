@@ -1,6 +1,6 @@
-#include "../../include/import.h"
-#include "../../include/register.h"
-#include "../../include/type.h"
+#include "import.h"
+#include "register.h"
+#include "type.h"
 #include "uthash.h"
 
 Type infer_expr_type(Exprs* expr, Register* reg);
