@@ -141,16 +141,10 @@ static inline size_t get_line_num(const LineStarts* starts, uintptr_t tgt) {
     return lo;
 }
 
-typedef struct {
-    const char* file;
-    size_t line;
-    size_t col;
-} SourcePos;
 
 typedef struct {
     const char* start;
     const char* end;
-    SourcePos pos;
 } SourceRange;
 
 typedef struct {
@@ -174,8 +168,8 @@ typedef struct {
 typedef struct {
     const char* source;
     const char* cur;
+    const char* file;
     LexerToken top;
-    SourcePos pos;
     LineStarts line_starts;
     size_t line_count;
     size_t line_cap;

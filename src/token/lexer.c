@@ -37,10 +37,7 @@ void lexer_advance(Lexer* self) {
 static char lexer_advance_char(Lexer* self) {
     char ans = self->cur[0];
     if (ans == '\n') {
-        self->pos.line++;
-        self->pos.col = 1;
-    } else {
-        self->pos.col++;
+        ARR_PUSH(self->line_starts, self->cur+1);
     }
     if (ans != '\0') self->cur++;
     return ans;
@@ -66,7 +63,6 @@ static void compue_top(Lexer* self) {
     skip_comments(self);
 
     self->top.range.start = self->cur;
-    self->top.range.pos   = self->pos;
 
     char c = self->cur[0];
     if (c == '\0') { self->top.tag = EOFs; } 
