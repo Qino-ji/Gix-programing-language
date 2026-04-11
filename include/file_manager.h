@@ -19,7 +19,6 @@ KHASHL_MAP_INIT(KH_LOCAL, FilePathMap, file_path_map, kh_cstr_t, FileId, kh_hash
 typedef struct {
     FilePathMap* path_to_id;
     ARR(ManagedFile) slots;
-    ARR(FileId) files;
 } FileManager;
 
 FileManager file_manager_new(void);
