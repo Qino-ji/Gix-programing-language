@@ -298,7 +298,21 @@ void print_statement(Stmts stmt, int depth) {
     }
 }
 
-static void report_errors(CheckerErrList* errors) {
+static void print_error_prefix(const FileManager* files, SourceRange range) {
+    const ManagedFile* file = file_manager_get_const(files, range.file_id);
+    size_t line = 0;
+    size_t col = 0;
+
+    const char* path = file ? file->path : "<unknown>";
+    if (!file_manager_get_location(files, range.file_id, range.start, &line, &col)) {
+        line = 0;
+        col = 0;
+    }
+
+    printf("[%s:%zu:%zu]", path, line, col);
+}
+
+static void report_errors(const FileManager* files, CheckerErrList* errors) {
     if (errors->count == 0) {
         printf("No errors.\n");
         return;
@@ -307,65 +321,61 @@ static void report_errors(CheckerErrList* errors) {
         CheckerErr* e = &errors->errors[i];
         switch (e->tag) {
             case Err_Tag_RDL:
-                printf("[%s:%zu:%zu] Error: '%s' already declared\n",
-                    e->data.rdl.file, e->data.rdl.line, e->data.rdl.col,
-                    e->data.rdl.var_name);
+                print_error_prefix(files, e->data.rdl.range);
+                printf(" Error: '%s' already declared\n", e->data.rdl.var_name);
                 break;
             case Err_Tag_VSF:
-                printf("[%s:%zu:%zu] Error: '%s' not found\n",
-                    e->data.vsf.file, e->data.vsf.line, e->data.vsf.col,
-                    e->data.vsf.var_name);
+                print_error_prefix(files, e->data.vsf.range);
+                printf(" Error: '%s' not found\n", e->data.vsf.var_name);
                 break;
             case Err_Tag_VMV:
-                printf("[%s:%zu:%zu] Error: '%s' type mismatch — expected %s, got %s\n",
-                    e->data.vmv.file, e->data.vmv.line, e->data.vmv.col,
+                print_error_prefix(files, e->data.vmv.range);
+                printf(" Error: '%s' type mismatch - expected %s, got %s\n",
                     e->data.vmv.var_name, e->data.vmv.expected_type,
                     e->data.vmv.actual_type);
                 break;
             case Err_Tag_CVN:
-                printf("[%s:%zu:%zu] Error: const '%s' has no value\n",
-                    e->data.cvn.file, e->data.cvn.line, e->data.cvn.col,
-                    e->data.cvn.var_name);
+                print_error_prefix(files, e->data.cvn.range);
+                printf(" Error: const '%s' has no value\n", e->data.cvn.var_name);
                 break;
             case Err_Tag_TNF:
-                printf("[%s:%zu:%zu] Error: type '%s' not found\n",
-                    e->data.tnf.file, e->data.tnf.line, e->data.tnf.col,
-                    e->data.tnf.type_name);
+                print_error_prefix(files, e->data.tnf.range);
+                printf(" Error: type '%s' not found\n", e->data.tnf.type_name);
                 break;
             case Err_Tag_TNC:
-                printf("[%s:%zu:%zu] Error: '%s' is a %s, not a class\n",
-                    e->data.tnc.file, e->data.tnc.line, e->data.tnc.col,
+                print_error_prefix(files, e->data.tnc.range);
+                printf(" Error: '%s' is a %s, not a class\n",
                     e->data.tnc.type_name, e->data.tnc.actual_kind);
                 break;
             case Err_Tag_VNM:
-                printf("[%s:%zu:%zu] Error: '%s' is %s, not a mutable var\n",
-                    e->data.vnm.file, e->data.vnm.line, e->data.vnm.col,
+                print_error_prefix(files, e->data.vnm.range);
+                printf(" Error: '%s' is %s, not a mutable var\n",
                     e->data.vnm.var_name, e->data.vnm.binding_kind);
                 break;
             case Err_Tag_VPT:
-                printf("[%s:%zu:%zu] Error: '%s' is primitive type %s, no operator overload\n",
-                    e->data.vpt.file, e->data.vpt.line, e->data.vpt.col,
+                print_error_prefix(files, e->data.vpt.range);
+                printf(" Error: '%s' is primitive type %s, no operator overload\n",
                     e->data.vpt.var_name, e->data.vpt.type_name);
                 break;
             case Err_Tag_OUD:
-                printf("[%s:%zu:%zu] Error: class '%s' has no overload for operator '%s'\n",
-                    e->data.oud.file, e->data.oud.line, e->data.oud.col,
+                print_error_prefix(files, e->data.oud.range);
+                printf(" Error: class '%s' has no overload for operator '%s'\n",
                     e->data.oud.class_name, e->data.oud.op);
                 break;
             case Err_Tag_OMP:
-                printf("[%s:%zu:%zu] Error: operator '%s' method '%s::%s' has no params\n",
-                    e->data.omp.file, e->data.omp.line, e->data.omp.col,
+                print_error_prefix(files, e->data.omp.range);
+                printf(" Error: operator '%s' method '%s::%s' has no params\n",
                     e->data.omp.op, e->data.omp.class_name, e->data.omp.method_name);
                 break;
             case Err_Tag_OMM:
-                printf("[%s:%zu:%zu] Error: operator '%s' method '%s::%s' — expected %s, got %s\n",
-                    e->data.omm.file, e->data.omm.line, e->data.omm.col,
+                print_error_prefix(files, e->data.omm.range);
+                printf(" Error: operator '%s' method '%s::%s' - expected %s, got %s\n",
                     e->data.omm.op, e->data.omm.class_name, e->data.omm.method_name,
                     e->data.omm.expected_type, e->data.omm.actual_type);
                 break;
             case Err_Tag_LHS:
-                printf("[%s:%zu:%zu] Error: invalid left-hand side in binary op\n",
-                    e->data.lhs.file, e->data.lhs.line, e->data.lhs.col);
+                print_error_prefix(files, e->data.lhs.range);
+                printf(" Error: invalid left-hand side in binary op\n");
                 break;
             default:
                 printf("Unknown error (tag %d)\n", e->tag);
@@ -418,7 +428,7 @@ int main(int argc, char** argv) {
     register_body(program, stmt_count, &global_reg, &errors);
 
     printf("\n=== CHECKER ===\n");
-    report_errors(&errors);
+    report_errors(&files, &errors);
 
     register_free(&global_reg);
     free(errors.errors);

@@ -64,7 +64,7 @@ typedef struct {
 } GenericArg;
 
 typedef struct {
-    char*       func_name;
+    StringView  func_name;
     GenericArg* args;
     size_t      args_count;
     Type        return_type;
@@ -72,7 +72,15 @@ typedef struct {
     size_t      params_count;
 } GenericInstance;
 
-KHASHL_MAP_INIT(KH_LOCAL, GenericInstanceTable, generic_instance_table, kh_cstr_t, GenericInstance, kh_hash_str, kh_eq_str)
+static inline khint_t string_view_hash(StringView view) {
+    return kh_hash_bytes((int)view.len, (const unsigned char*)view.ptr);
+}
+
+static inline int string_view_eq(StringView a, StringView b) {
+    return a.len == b.len && memcmp(a.ptr, b.ptr, a.len) == 0;
+}
+
+KHASHL_MAP_INIT(KH_LOCAL, GenericInstanceTable, generic_instance_table, StringView, GenericInstance, string_view_hash, string_view_eq)
 
 typedef struct {
     GenericInstanceTable* table;
