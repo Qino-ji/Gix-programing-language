@@ -11,8 +11,8 @@ void        print_statement(Stmts stmt, int depth);
 
 Register       register_new(Register* parent);
 void           register_free(Register* reg);
-void           register_insert(Register* reg, const char* name, RegisterEntry entry);
-RegisterEntry* register_get(Register* reg, const char* name);
+void           register_insert(Register* reg, StringView name, RegisterEntry entry);
+RegisterEntry* register_get(Register* reg, StringView name);
 
 bool register_body    (Stmts* body, size_t count, Register* reg, CheckerErrList* errors);
 bool register_stmt    (Stmts* stmt, Register* reg, CheckerErrList* errors);

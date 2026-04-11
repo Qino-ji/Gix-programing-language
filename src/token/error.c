@@ -1,4 +1,4 @@
-#include "ast.h"
+#include "token/ast/ast.h"
 #include "import.h"
 
 LexerToken parser_current(Parser* self);
