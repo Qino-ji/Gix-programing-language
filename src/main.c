@@ -40,30 +40,6 @@ char* read_file_to_string(const char* path) {
     return buffer;
 }
 
-LexerToken* lex_all(FileManager* files, FileId file_id, const char* source, size_t* out_count) {
-    Lexer  lexer  = lexer_new(file_id, source);
-    size_t cap    = 64;
-    size_t count  = 0;
-    LexerToken* tokens = malloc(sizeof(LexerToken) * cap);
-
-    while (1) {
-        LexerToken tok = lexer_peek(&lexer);
-        if (count >= cap) {
-            cap   *= 2;
-            tokens = realloc(tokens, sizeof(LexerToken) * cap);
-        }
-        tokens[count++] = tok;
-        if (tok.tag == EOFs) break;
-        lexer_advance(&lexer);
-    }
-
-    ARR_PUSH(lexer.line_starts, source + strlen(source) + 1);
-    file_manager_set_line_starts(files, file_id, lexer.line_starts);
-
-    *out_count = count;
-    return tokens;
-}
-
 void print_expression(Exprs expr, int depth) {
     for (int i = 0; i < depth; i++) printf("  ");
 
@@ -418,16 +394,7 @@ int main(int argc, char** argv) {
 
     printf("=== RUNNING: %s ===\n", filename);
 
-    size_t      token_count = 0;
-    LexerToken* tokens      = lex_all(&files, file_id, source, &token_count);
-    if (!tokens) {
-        printf("Lexing failed.\n");
-        file_manager_free(&files);
-        free(source);
-        return 1;
-    }
-
-    Parser parser     = parser_new(tokens);
+    Parser parser     = parser_new(lexer_new(file_id,files.slots.data[file_id].source));
     size_t stmt_count = 0;
     Stmts  program[256];
 
@@ -455,7 +422,6 @@ int main(int argc, char** argv) {
 
     register_free(&global_reg);
     free(errors.errors);
-    free(tokens);
     file_manager_free(&files);
     free(source);
 

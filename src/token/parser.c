@@ -1,26 +1,9 @@
 #include "token/parser.h"
+#include "token/lexer.h"
 
 bool range_eq(SourceRange r, const char* str) {
     size_t len = r.end - r.start;
     return strlen(str) == len && memcmp(r.start, str, len) == 0;
-}
-
-Parser parser_new(LexerToken* tokens) {
-    return (Parser){ .cur = tokens };
-}
-
-LexerToken parser_current(Parser* self) {
-    return self->cur[0];
-}
-
-LexerToken parser_advance(Parser* self) {
-    LexerToken tok = self->cur[0];
-    self->cur++;
-    return tok;
-}
-
-LexerToken parser_peek(Parser* self) {
-    return self->cur[1];
 }
 
 
