@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#define _POSIX_C_SOURCE 200809L
 #ifndef VIX_IMPORT_H
 #define VIX_IMPORT_H
 
@@ -9,6 +10,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+char *strndup(const char *s, size_t n) {
+    if (s == NULL) {
+        return NULL;
+    }
+
+    // Find the actual length to copy, up to n characters
+    size_t len = 0;
+    while (len < n && s[len] != '\0') {
+        ++len;
+    }
+
+    char *new_str = (char *)malloc(len + 1);
+    if (new_str == NULL) {
+        return NULL;
+    }
+
+    memcpy(new_str, s, len);
+    new_str[len] = '\0';
+    return new_str;
+}
 
 typedef struct {
     const char* ptr;

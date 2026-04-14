@@ -246,7 +246,7 @@ typedef struct {
 
 typedef struct {
     SourceRange name;
-    SourceRange* fields;
+    EnumField* fields; 
     size_t fields_count;
     SourceRange range;
 } EnumVariant;
@@ -372,6 +372,17 @@ typedef enum {
     ClassAttach_Enum,
 } ClassAttachTag;
 
+#define ARR(T) struct { T* data; size_t len; size_t cap; }
+
+typedef struct { Param* data; size_t len, cap; } ParamArr;
+typedef struct { StructParam* data; size_t len, cap; } StructParamArr;
+typedef struct { Stmts* data; size_t len, cap; } StmtsArr;
+typedef struct { SourceRange* data; size_t len, cap; } RangeArr;
+typedef struct { FunctionMethod* data; size_t len, cap; } MethodArr;
+typedef struct { EnumVariant* data; size_t len, cap; } VariantArr;
+typedef struct { EnumField* data; size_t len, cap; } EnumFieldArr;
+typedef struct { TraitMethod* data; size_t len, cap; } TraitMethodArr;
+
 struct Stmts {
     StmtsTag tag;
     union {
@@ -403,16 +414,27 @@ typedef enum {
     Type_Bool,
     Type_Void,
     Type_Array,
+    Type_Ptr,
+    Type_RawPtr,
+    Type_FnPtr,
     Type_Custom,
 } TypeTag;
+
 
 struct Type {
     TypeTag tag;
     union {
         struct { int bits; } int_t;
         struct { int bits; } float_t;
-        struct { Type* inner; } array_t;
+        struct { Type* inner; size_t len; } array_t;
+        struct { Type* inner; } ptr;
+        struct { Type* inner; } raw_ptr;
         struct { SourceRange name; } custom;
+        struct {
+            Type* ret;
+            Type* params;
+            size_t params_count;
+        } fn_ptr;
     } data;
 };
 

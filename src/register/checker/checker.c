@@ -7,6 +7,7 @@ Type resolve_type(SourceRange r, Register* reg);
 RegisterEntry* register_get(Register* reg, StringView key);
 void register_insert(Register* reg, StringView key, RegisterEntry entry);
 bool register_class(Stmts* stmt, Register* reg, CheckerErrList* errors);
+char *strndup(const char *s, size_t n);
 
 static inline StringView string_view_from_range(SourceRange range) {
     return (StringView){

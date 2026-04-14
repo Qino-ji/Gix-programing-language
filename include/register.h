@@ -25,10 +25,18 @@ typedef enum {
     Reg_ExprVar,
 } RegisterEntryTag;
 
+
+typedef struct {
+    uint32_t id;
+    RegisterEntryTag kind;
+} EntityID;
+
+
 typedef struct {
     RegisterEntryTag tag;
     char* name;
     Type  type;
+    EntityID eid;
     union {
         struct { Type type; VarMode mode; bool is_mut; } var;
         struct { Type type; VarMode mode; } let;
@@ -61,10 +69,25 @@ static inline int string_view_eq(StringView a, StringView b) {
 
 KHASHL_MAP_INIT(KH_LOCAL, RegisterTable, register_table, StringView, RegisterEntry, string_view_hash, string_view_eq)
 
+KHASHL_MAP_INIT(KH_LOCAL, PendingTable, pending_table, StringView, EntityID, string_view_hash, string_view_eq)
+
+typedef struct {
+    uint32_t next_id;
+} IDCounter;
+
 typedef struct Register {
     RegisterTable*  table;
     struct Register* parent;
+    PendingTable* pending;
+    IDCounter* counter;
 } Register;
+
+
+typedef struct {
+    EntityID* ids;
+    size_t count;
+    RegisterEntryTag* kinds;
+} ID;
 
 typedef struct {
     char* type_name;
