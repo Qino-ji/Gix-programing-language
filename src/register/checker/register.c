@@ -8,7 +8,7 @@ bool register_body(Stmts* body, size_t count, Register* reg, CheckerErrList* err
 void resolve_operations(Exprs* expr, Register* reg, CheckerErrList* errors);
 char* type_tag_to_str(Type t);
 
-static inline StringView string_view_from_range(SourceRange range) {
+StringView string_view_from_range(SourceRange range) {
     return (StringView){
         .ptr = range.start,
         .len = (size_t)(range.end - range.start),
@@ -22,8 +22,13 @@ static char* null_term_view_alloc(StringView name) {
     return out;
 }
 
-Register register_new(Register* parent) {
-    return (Register){ .table = register_table_init(), .parent = parent };
+Register register_new(Register* parent, IDCounter* counter) {
+    return (Register){ 
+        .table   = register_table_init(), 
+        .pending = pending_table_init(),
+        .parent  = parent, 
+        .counter = counter 
+    };
 }
 
 void register_free(Register* reg) {
@@ -35,12 +40,16 @@ void register_free(Register* reg) {
     }
 
     register_table_destroy(reg->table);
-    reg->table = NULL;
+    pending_table_destroy(reg->pending);
+    reg->table   = NULL;
+    reg->pending = NULL;
 }
 
-
 void register_insert(Register* reg, StringView name, RegisterEntry entry) {
+    khint_t pit = pending_table_get(reg->pending, name);
     int absent = 0;
+
+    if (pit != kh_end(reg->pending)) { entry.eid = kh_val(reg->pending, pit); pending_table_del(reg->pending, pit); } else { entry.eid = (EntityID){ .id = reg->counter->next_id++, .kind = entry.tag }; }
     khint_t it = register_table_put(reg->table, name, &absent);
 
     if (!absent) {
@@ -54,6 +63,7 @@ void register_insert(Register* reg, StringView name, RegisterEntry entry) {
     kh_key(reg->table, it) = (StringView){ .ptr = entry.name, .len = strlen(entry.name) };
     kh_val(reg->table, it) = entry;
 }
+
 
 RegisterEntry* register_get(Register* reg, StringView name) {
     for (Register* r = reg; r != NULL; r = r->parent) {
@@ -152,6 +162,22 @@ Type infer_expr_type(Exprs* expr, Register* reg) {
         default:
             return (Type){ .tag = Type_Void };
     }
+}
+
+EntityID register_call(Register* reg, StringView name, RegisterEntryTag kind) {
+    int absent = 0;
+
+    RegisterEntry* entry = register_get(reg, name);
+    if (entry) return entry->eid;
+
+    khint_t pit = pending_table_get(reg->pending, name);
+    if (pit != kh_end(reg->pending)) return kh_val(reg->pending, pit);
+
+    EntityID eid = (EntityID){ .id = reg->counter->next_id++, .kind = kind };
+    khint_t it = pending_table_put(reg->pending, name, &absent);
+
+    kh_val(reg->pending, it) = eid;
+    return eid;
 }
 
 
@@ -362,24 +388,55 @@ bool register_local(Stmts* stmt, Register* reg, CheckerErrList* errors) {
 }
 
 
-
 bool register_expr(Exprs* expr, Register* reg, CheckerErrList* errors) {
     if (!expr) return true;
     switch (expr->tag) {
+        case Expr_Function: {
+            StringView name = string_view_from_range(expr->data.function_call.name);
+            register_call(reg, name, Reg_Function);
+            return true;
+        }
+        case Expr_Class_Calls: {
+            StringView name = string_view_from_range(expr->data.class_calls.name);
+            register_call(reg, name, Reg_Class);
+            return true;
+        }
 
-        default:                return true;
+        case Expr_Struct_Calls: {
+            StringView name = string_view_from_range(expr->data.struct_calls.name);
+            register_call(reg, name, Reg_Struct);
+            return true;
+        }
+
+        default: return true;
     }
 }
 
 bool register_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
     if (!stmt) return true;
     switch (stmt->tag) {
-        case Stmt_Vars:   return register_var(stmt, reg, errors);
-        case Stmt_Lets:   return register_let(stmt, reg, errors);
+        case Stmt_Vars: return register_var(stmt, reg, errors);
+        case Stmt_Lets: return register_let(stmt, reg, errors);
         case Stmt_Consts: return register_const(stmt, reg, errors);
         case Stmt_Classes: return register_class(stmt, reg, errors);
         case Stmt_Functions: {
-            Register child = register_new(reg);
+            StringView key = string_view_from_range(stmt->data.functions.name);
+
+            register_insert(reg, key, (RegisterEntry){
+                .tag  = Reg_Function,
+                .name = NULL,
+                .type = resolve_type(stmt->data.functions.return_type, reg),
+                .data.function = {
+                    .params       = stmt->data.functions.params,
+                    .params_count = stmt->data.functions.params_count,
+                    .return_type  = resolve_type(stmt->data.functions.return_type, reg),
+                    .is_pub       = stmt->data.functions.is_pub,
+                    .is_unsafe    = stmt->data.functions.is_unsafe,
+                }
+            });
+
+            Register child = register_new(reg, reg->counter);
+
             for (size_t i = 0; i < stmt->data.functions.params_count; i++) {
                 Param* p   = &stmt->data.functions.params[i];
                 Type t   = resolve_type(p->c_type, reg);
@@ -394,6 +451,9 @@ bool register_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
             register_free(&child);
             return ok;
         }
+
+        case Stmt_ExprStmt: { return register_expr(&stmt->data.expr_stmt.expr, reg, errors); }
+        case Stmt_Returns: { return register_expr(&stmt->data.returns.expr, reg, errors); }
         case Stmt_Assigns: {
             Exprs op_expr = {
                 .tag = Expr_BinaryOps,
@@ -417,3 +477,4 @@ bool register_body(Stmts* body, size_t count, Register* reg, CheckerErrList* err
     for (size_t i = 0; i < count; i++) ok = register_stmt(&body[i], reg, errors) && ok;
     return ok;
 }
+

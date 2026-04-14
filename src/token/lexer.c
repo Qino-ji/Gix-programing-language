@@ -61,7 +61,7 @@ void skip_comments(Lexer* self){
 
 
 static void compue_top(Lexer* self) {
-    self->top = (LexerToken){};
+    self->top = (LexerToken){0};
     skip_comments(self);
 
     self->top.range.start = self->cur;

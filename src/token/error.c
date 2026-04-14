@@ -1,8 +1,30 @@
 #include "token/ast/ast.h"
 #include "import.h"
+#include "parser.h"
+
+typedef struct Parser Parser;
 
 LexerToken parser_current(Parser* self);
 LexerToken parser_advance(Parser* self);
+
+typedef enum {
+    ParseErr_UnexpectedEOF,
+    ParseErr_ExpectedToken,
+    ParseErr_UnexpectedToken,
+    ParseErr_InvalidType,
+    ParseErr_InvalidOperation,
+} ParseErrKind;
+
+typedef struct {
+    ParseErrKind    kind;
+    SourceRange     range;
+    LexerTokenTag   expected;
+    LexerTokenTag   got;
+    const char*     message;
+} ParseError;
+
+typedef ARR(ParseError) ParseErrorArr;
+static ParseErrorArr g_errors = {0};
 
 void parse_error(Parser* self, ParseErrKind kind, const char* msg, LexerTokenTag expected) {
     ParseError e = {

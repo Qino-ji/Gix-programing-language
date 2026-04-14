@@ -366,36 +366,129 @@ Exprs parser_enums_call(Parser* self, SourceRange en) {
         }}
     };
 }
-
 Type parser_type(Parser* self) {
+    if (parser_current(self).tag == Stars) {
+        parser_advance(self);
+
+        if (parser_current(self).tag == Stars) {
+            parser_advance(self);
+
+            Type* inner = malloc(sizeof(Type)); // i'll just allocate
+            *inner = parser_type(self);
+
+            return (Type){ .tag = Type_RawPtr, .data.raw_ptr.inner = inner };
+        }
+
+        Type* inner = malloc(sizeof(Type));
+        *inner = parser_type(self);
+
+        return (Type){ .tag = Type_Ptr, .data.ptr.inner = inner };
+    }
+
+    if (parser_current(self).tag == Functions) {
+        parser_advance(self);
+
+        Type* params = NULL;
+        size_t params_count = 0;
+
+        if (parser_current(self).tag == LeftParens) {
+            parser_advance(self);
+
+            size_t cap = 0;
+            while (parser_current(self).tag != RightParens && parser_current(self).tag != EOFs) {
+                if (params_count == cap) { cap = cap ? cap * 2 : 4; params = realloc(params, cap * sizeof(Type)); } params[params_count++] = parser_type(self);
+                if (parser_current(self).tag == Commas) parser_advance(self);
+            }
+
+            if (parser_current(self).tag == RightParens) parser_advance(self);
+        }
+
+        Type ret = { .tag = Type_Void };
+        if (parser_current(self).tag == Colons) { parser_advance(self); ret = parser_type(self); }
+
+        Type* ret_heap = malloc(sizeof(Type));
+        *ret_heap = ret;
+
+        return (Type){
+            .tag = Type_FnPtr,
+            .data.fn_ptr = {
+                .ret          = ret_heap,
+                .params       = params,
+                .params_count = params_count,
+            }
+        };
+    }
     switch (parser_current(self).tag) {
         case Ints: {
             SourceRange r = parser_current(self).range;
-            int bits = range_eq(r, "int8") ? 8 : range_eq(r, "int16") ? 16 : range_eq(r, "int64") ? 64 : 32;
-            parser_advance(self);
+            int bits = range_eq(r, "int8")  ? 8  : range_eq(r, "int16") ? 16 : range_eq(r, "int64") ? 64 : 32; parser_advance(self);
 
-            return (Type){ .tag = Type_Int, .data = { .int_t = { .bits = bits } } };
+            Type base = (Type){ 
+                .tag = Type_Int, 
+                .data.int_t.bits = bits 
+            };
+
+            if (parser_current(self).tag == LeftBrackets) { parser_advance(self);
+                size_t len = 0;
+                if (parser_current(self).tag == Ints) { len = (size_t)parser_current(self).data.value_int; parser_advance(self); }
+                if (parser_current(self).tag == RightBrackets) parser_advance(self);
+
+                Type* inner = malloc(sizeof(Type));
+                *inner = base;
+
+                return (Type){ .tag = Type_Array, .data.array_t.inner = inner, .data.array_t.len = len };
+            }
+
+            return base;
         }
+
         case Floats: {
             SourceRange r = parser_current(self).range;
-            int bits = range_eq(r, "float64") ? 64 : range_eq(r, "float32") ? 32 : 32;
-            parser_advance(self);
+            int bits = range_eq(r, "float64") ? 64 : 32; parser_advance(self);
+            Type base = (Type){ 
+                .tag = Type_Float, 
+                .data.float_t.bits = bits 
+            };
 
-            return (Type){ .tag = Type_Float, .data = { .float_t = { .bits = bits } } };
+            if (parser_current(self).tag == LeftBrackets) {
+                parser_advance(self);
+                if (parser_current(self).tag == Ints) parser_advance(self);
+                if (parser_current(self).tag == RightBrackets) parser_advance(self);
+                Type* inner = malloc(sizeof(Type));
+                *inner = base;
+
+                return (Type){ .tag = Type_Array, .data.array_t.inner = inner };
+            }
+            return base;
         }
-        case Chars: { parser_advance(self); return (Type){ .tag = Type_Char }; }
+
+        case Chars:   { parser_advance(self); return (Type){ .tag = Type_Char }; }
         case Strings: { parser_advance(self); return (Type){ .tag = Type_Str  }; }
-        case Trues: { parser_advance(self); return (Type){ .tag = Type_Bool }; }
-        case Falses: { parser_advance(self); return (Type){ .tag = Type_Bool }; }
+        case Trues:
+        case Falses:  { parser_advance(self); return (Type){ .tag = Type_Bool }; }
         case Identifier: {
-            SourceRange r = parser_current(self).range;
-            parser_advance(self);
+            SourceRange r = parser_current(self).range; parser_advance(self);
+
             if (range_eq(r, "bool")) return (Type){ .tag = Type_Bool };
             if (range_eq(r, "void")) return (Type){ .tag = Type_Void };
             if (range_eq(r, "str"))  return (Type){ .tag = Type_Str  };
             if (range_eq(r, "char")) return (Type){ .tag = Type_Char };
-            return (Type){ .tag = Type_Custom, .data = { .custom = { .name = r } } };
+
+            Type base = (Type){ .tag = Type_Custom, .data.custom.name = r };
+
+            if (parser_current(self).tag == LeftBrackets) {
+                parser_advance(self);
+                if (parser_current(self).tag == Ints) parser_advance(self);
+                if (parser_current(self).tag == RightBrackets) parser_advance(self);
+
+                Type* inner = malloc(sizeof(Type));
+                *inner = base;
+                return (Type){ .tag = Type_Array, .data.array_t.inner = inner };
+            }
+
+            return base;
         }
+
         default: parser_advance(self); return (Type){ .tag = Type_Void };
     }
 }
