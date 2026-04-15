@@ -7,6 +7,9 @@
 
 typedef struct IR_Type IR_Type;
 typedef struct IR_Inst IR_Inst;
+typedef struct IR_StructDef IR_StructDef;
+typedef struct IR_EnumDef IR_EnumDef;
+typedef struct IR_MethodDef IR_MethodDef;
 
 typedef enum {
     IR_Type_I8,
@@ -88,6 +91,39 @@ struct IR_Type {
             size_t params_count;
         } fn;
     } data;
+};
+
+typedef struct {
+    StringView name;
+    IR_Type    ty;
+} IR_FieldDef;
+
+struct IR_StructDef {
+    uint32_t    name_id;
+    StringView  name;
+    IR_FieldDef* fields;
+    size_t      fields_count;
+    bool        is_pub;
+};
+
+typedef struct {
+    StringView name;
+    IR_Type    payload_ty;
+    bool       has_payload;
+} IR_EnumVariantDef;
+
+struct IR_EnumDef {
+    uint32_t          name_id;
+    StringView        name;
+    IR_EnumVariantDef* variants;
+    size_t            variants_count;
+    bool              is_pub;
+};
+
+struct IR_MethodDef {
+    uint32_t   method_id;
+    StringView name;
+    IR_Type    fn_ty;
 };
 
 typedef struct {
@@ -177,6 +213,19 @@ typedef struct {
     IR_Function* functions;
     size_t functions_count;
     size_t functions_cap;
+
+    IR_StructDef* structs;
+    size_t        structs_count;
+    size_t        structs_cap;
+
+    IR_EnumDef* enums;
+    size_t      enums_count;
+    size_t      enums_cap;
+
+    IR_MethodDef* methods;
+    size_t        methods_count;
+    size_t        methods_cap;
+
     struct {
         uint32_t id;
         char* name;
