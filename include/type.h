@@ -2,59 +2,59 @@
 
 typedef struct {
     SourceRange range;
-    const char* var_name;
-    const char* expected_type;
-    const char* actual_type;
+    StringView var_name;
+    StringView expected_type;
+    StringView actual_type;
 } Err_VMV;
 
 typedef struct {
     SourceRange range;
-    const char* var_name;
+    StringView var_name;
 } Err_VSF;
 
 typedef struct {
     SourceRange range;
-    const char* var_name;
-    const char* binding_kind;
+    StringView var_name;
+    StringView binding_kind;
 } Err_VNM;
 
 typedef struct {
     SourceRange range;
-    const char* var_name;
-    const char* type_name;
+    StringView var_name;
+    StringView type_name;
 } Err_VPT;
 
 typedef struct {
     SourceRange range;
-    const char* type_name;
+    StringView type_name;
 } Err_TNF;
 
 typedef struct {
     SourceRange range;
-    const char* type_name;
-    const char* actual_kind;
+    StringView type_name;
+    StringView actual_kind;
 } Err_TNC;
 
 typedef struct {
     SourceRange range;
-    const char* class_name;
-    const char* op;
+    StringView class_name;
+    StringView op;
 } Err_OUD;
 
 typedef struct {
     SourceRange range;
-    const char* class_name;
-    const char* method_name;
-    const char* op;
+    StringView class_name;
+    StringView method_name;
+    StringView op;
 } Err_OMP;
 
 typedef struct {
     SourceRange range;
-    const char* class_name;
-    const char* method_name;
-    const char* op;
-    const char* expected_type;
-    const char* actual_type;
+    StringView class_name;
+    StringView method_name;
+    StringView op;
+    StringView expected_type;
+    StringView actual_type;
 } Err_OMM;
 
 typedef struct {
@@ -63,12 +63,12 @@ typedef struct {
 
 typedef struct {
     SourceRange range;
-    const char* var_name;
+    StringView var_name;
 } Err_CVN;
 
 typedef struct {
     SourceRange range;
-    const char* var_name;
+    StringView var_name;
 } Err_RDL;
 
 

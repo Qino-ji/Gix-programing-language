@@ -6,7 +6,23 @@
 bool register_expr(Exprs* expr, Register* reg, CheckerErrList* errors);
 bool register_body(Stmts* body, size_t count, Register* reg, CheckerErrList* errors);
 void resolve_operations(Exprs* expr, Register* reg, CheckerErrList* errors);
-char* type_tag_to_str(Type t);
+
+static inline StringView sv_from_cstr(const char* s) {
+    return (StringView){ .ptr = s, .len = s ? strlen(s) : 0 };
+}
+
+static inline StringView type_tag_to_view(Type t) {
+    switch (t.tag) {
+        case Type_Int:    return sv_from_cstr(t.data.int_t.bits == 64 ? "i64" : "i32");
+        case Type_Float:  return sv_from_cstr(t.data.float_t.bits == 64 ? "f64" : "f32");
+        case Type_Bool:   return sv_from_cstr("bool");
+        case Type_Char:   return sv_from_cstr("char");
+        case Type_Str:    return sv_from_cstr("str");
+        case Type_Void:   return sv_from_cstr("void");
+        case Type_Custom: return string_view_from_range(t.data.custom.name);
+        default:          return sv_from_cstr("unknown");
+    }
+}
 
 StringView string_view_from_range(SourceRange range) {
     return (StringView){
@@ -189,17 +205,17 @@ bool register_class(Stmts* stmt, Register* reg, CheckerErrList* errors) {
         bool allowed = existing->tag == Reg_Struct || existing->tag == Reg_Enum;
         if (!allowed) {
             checker_err_push(errors, (CheckerErr){
-                .tag      = Err_Tag_RDL,
+                .tag = Err_Tag_RDL,
                 .data.rdl = {
-                    .range               = stmt->data.classes.range,
-                    .var_name            = existing->name,
+                    .range = stmt->data.classes.range,
+                    .var_name = sv_from_cstr(existing->name),
                 }
             });
             return true;
         }
 
         stmt->data.classes.attached_tag = existing->tag == Reg_Struct ? ClassAttach_Struct : ClassAttach_Enum;
-        stmt->data.classes.attached_fields       = existing->data.strct.fields;
+        stmt->data.classes.attached_fields  = existing->data.strct.fields;
         stmt->data.classes.attached_fields_count = existing->data.strct.fields_count;
     }
 
@@ -229,7 +245,7 @@ bool register_var(Stmts* stmt, Register* reg, CheckerErrList* errors) {
             .tag      = Err_Tag_RDL,
             .data.rdl = {
                 .range               = stmt->data.vars.range,
-                .var_name            = existing->name,
+                .var_name            = sv_from_cstr(existing->name),
             }
         });
         return false;
@@ -242,14 +258,13 @@ bool register_var(Stmts* stmt, Register* reg, CheckerErrList* errors) {
     if (stmt->data.vars.has_value && stmt->data.vars.c_type.start != stmt->data.vars.c_type.end) {
         Type vt = infer_expr_type(&stmt->data.vars.value, reg);
         if (t.tag != vt.tag) {
-            char* name = null_term_view_alloc(key);
             checker_err_push(errors, (CheckerErr){
                 .tag      = Err_Tag_VMV,
                 .data.vmv = {
                     .range         = stmt->data.vars.range,
-                    .var_name      = name,
-                    .expected_type = type_tag_to_str(t),
-                    .actual_type   = type_tag_to_str(vt),
+                    .var_name      = key,
+                    .expected_type = type_tag_to_view(t),
+                    .actual_type   = type_tag_to_view(vt),
                 }
             });
             return false;
@@ -274,7 +289,7 @@ bool register_let(Stmts* stmt, Register* reg, CheckerErrList* errors) {
             .tag      = Err_Tag_RDL,
             .data.rdl = {
                 .range               = stmt->data.lets.range,
-                .var_name            = existing->name,
+                .var_name            = sv_from_cstr(existing->name),
             }
         });
         return false;
@@ -287,14 +302,13 @@ bool register_let(Stmts* stmt, Register* reg, CheckerErrList* errors) {
     if (stmt->data.lets.has_value && stmt->data.lets.c_type.start != stmt->data.lets.c_type.end) {
         Type vt = infer_expr_type(&stmt->data.lets.value, reg);
         if (t.tag != vt.tag) {
-            char* name = null_term_view_alloc(key);
             checker_err_push(errors, (CheckerErr){
                 .tag      = Err_Tag_VMV,
                 .data.vmv = {
                     .range         = stmt->data.lets.range,
-                    .var_name      = name,
-                    .expected_type = type_tag_to_str(t),
-                    .actual_type   = type_tag_to_str(vt),
+                    .var_name      = key,
+                    .expected_type = type_tag_to_view(t),
+                    .actual_type   = type_tag_to_view(vt),
                 }
             });
             return false;
@@ -315,12 +329,11 @@ bool register_const(Stmts* stmt, Register* reg, CheckerErrList* errors) {
     RegisterEntry* existing = register_get(reg, key);
 
     if (!stmt->data.consts.has_value) {
-        char* name = null_term_view_alloc(key);
         checker_err_push(errors, (CheckerErr){
             .tag = Err_Tag_CVN,
             .data.cvn = {
                 .range = stmt->data.consts.range,
-                .var_name = name,
+                .var_name = key,
             }
         });
         return false;
@@ -331,7 +344,7 @@ bool register_const(Stmts* stmt, Register* reg, CheckerErrList* errors) {
             .tag = Err_Tag_RDL,
             .data.rdl = {
                 .range               = stmt->data.consts.range,
-                .var_name            = existing->name,
+                .var_name            = sv_from_cstr(existing->name),
             }
         });
         return false;
@@ -359,7 +372,7 @@ bool register_local(Stmts* stmt, Register* reg, CheckerErrList* errors) {
             .tag      = Err_Tag_RDL,
             .data.rdl = {
                 .range               = stmt->data.locals.range,
-                .var_name            = existing->name,
+                .var_name            = sv_from_cstr(existing->name),
             }
         });
         return false;
@@ -367,12 +380,11 @@ bool register_local(Stmts* stmt, Register* reg, CheckerErrList* errors) {
 
     Type t = resolve_type(stmt->data.locals.c_type, reg);
     if (t.tag == Type_Void) {
-        char* name = null_term_view_alloc(key);
         checker_err_push(errors, (CheckerErr){
             .tag = Err_Tag_TNF,
             .data.tnf = {
                 .range     = stmt->data.locals.range,
-                .type_name = name,
+                .type_name = key,
             }
         });
         return false;

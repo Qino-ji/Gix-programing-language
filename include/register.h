@@ -90,7 +90,7 @@ typedef struct {
 } ID;
 
 typedef struct {
-    char* type_name;
+    StringView type_name;
     Type  type;
 } GenericArg;
 

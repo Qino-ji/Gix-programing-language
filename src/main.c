@@ -322,56 +322,70 @@ static void report_errors(const FileManager* files, CheckerErrList* errors) {
         switch (e->tag) {
             case Err_Tag_RDL:
                 print_error_prefix(files, e->data.rdl.range);
-                printf(" Error: '%s' already declared\n", e->data.rdl.var_name);
+                printf(" Error: '%.*s' already declared\n",
+                    (int)e->data.rdl.var_name.len, e->data.rdl.var_name.ptr);
                 break;
             case Err_Tag_VSF:
                 print_error_prefix(files, e->data.vsf.range);
-                printf(" Error: '%s' not found\n", e->data.vsf.var_name);
+                printf(" Error: '%.*s' not found\n",
+                    (int)e->data.vsf.var_name.len, e->data.vsf.var_name.ptr);
                 break;
             case Err_Tag_VMV:
                 print_error_prefix(files, e->data.vmv.range);
-                printf(" Error: '%s' type mismatch - expected %s, got %s\n",
-                    e->data.vmv.var_name, e->data.vmv.expected_type,
-                    e->data.vmv.actual_type);
+                printf(" Error: '%.*s' type mismatch - expected %.*s, got %.*s\n",
+                    (int)e->data.vmv.var_name.len, e->data.vmv.var_name.ptr,
+                    (int)e->data.vmv.expected_type.len, e->data.vmv.expected_type.ptr,
+                    (int)e->data.vmv.actual_type.len, e->data.vmv.actual_type.ptr);
                 break;
             case Err_Tag_CVN:
                 print_error_prefix(files, e->data.cvn.range);
-                printf(" Error: const '%s' has no value\n", e->data.cvn.var_name);
+                printf(" Error: const '%.*s' has no value\n",
+                    (int)e->data.cvn.var_name.len, e->data.cvn.var_name.ptr);
                 break;
             case Err_Tag_TNF:
                 print_error_prefix(files, e->data.tnf.range);
-                printf(" Error: type '%s' not found\n", e->data.tnf.type_name);
+                printf(" Error: type '%.*s' not found\n",
+                    (int)e->data.tnf.type_name.len, e->data.tnf.type_name.ptr);
                 break;
             case Err_Tag_TNC:
                 print_error_prefix(files, e->data.tnc.range);
-                printf(" Error: '%s' is a %s, not a class\n",
-                    e->data.tnc.type_name, e->data.tnc.actual_kind);
+                printf(" Error: '%.*s' is a %.*s, not a class\n",
+                    (int)e->data.tnc.type_name.len, e->data.tnc.type_name.ptr,
+                    (int)e->data.tnc.actual_kind.len, e->data.tnc.actual_kind.ptr);
                 break;
             case Err_Tag_VNM:
                 print_error_prefix(files, e->data.vnm.range);
-                printf(" Error: '%s' is %s, not a mutable var\n",
-                    e->data.vnm.var_name, e->data.vnm.binding_kind);
+                printf(" Error: '%.*s' is %.*s, not a mutable var\n",
+                    (int)e->data.vnm.var_name.len, e->data.vnm.var_name.ptr,
+                    (int)e->data.vnm.binding_kind.len, e->data.vnm.binding_kind.ptr);
                 break;
             case Err_Tag_VPT:
                 print_error_prefix(files, e->data.vpt.range);
-                printf(" Error: '%s' is primitive type %s, no operator overload\n",
-                    e->data.vpt.var_name, e->data.vpt.type_name);
+                printf(" Error: '%.*s' is primitive type %.*s, no operator overload\n",
+                    (int)e->data.vpt.var_name.len, e->data.vpt.var_name.ptr,
+                    (int)e->data.vpt.type_name.len, e->data.vpt.type_name.ptr);
                 break;
             case Err_Tag_OUD:
                 print_error_prefix(files, e->data.oud.range);
-                printf(" Error: class '%s' has no overload for operator '%s'\n",
-                    e->data.oud.class_name, e->data.oud.op);
+                printf(" Error: class '%.*s' has no overload for operator '%.*s'\n",
+                    (int)e->data.oud.class_name.len, e->data.oud.class_name.ptr,
+                    (int)e->data.oud.op.len, e->data.oud.op.ptr);
                 break;
             case Err_Tag_OMP:
                 print_error_prefix(files, e->data.omp.range);
-                printf(" Error: operator '%s' method '%s::%s' has no params\n",
-                    e->data.omp.op, e->data.omp.class_name, e->data.omp.method_name);
+                printf(" Error: operator '%.*s' method '%.*s::%.*s' has no params\n",
+                    (int)e->data.omp.op.len, e->data.omp.op.ptr,
+                    (int)e->data.omp.class_name.len, e->data.omp.class_name.ptr,
+                    (int)e->data.omp.method_name.len, e->data.omp.method_name.ptr);
                 break;
             case Err_Tag_OMM:
                 print_error_prefix(files, e->data.omm.range);
-                printf(" Error: operator '%s' method '%s::%s' - expected %s, got %s\n",
-                    e->data.omm.op, e->data.omm.class_name, e->data.omm.method_name,
-                    e->data.omm.expected_type, e->data.omm.actual_type);
+                printf(" Error: operator '%.*s' method '%.*s::%.*s' - expected %.*s, got %.*s\n",
+                    (int)e->data.omm.op.len, e->data.omm.op.ptr,
+                    (int)e->data.omm.class_name.len, e->data.omm.class_name.ptr,
+                    (int)e->data.omm.method_name.len, e->data.omm.method_name.ptr,
+                    (int)e->data.omm.expected_type.len, e->data.omm.expected_type.ptr,
+                    (int)e->data.omm.actual_type.len, e->data.omm.actual_type.ptr);
                 break;
             case Err_Tag_LHS:
                 print_error_prefix(files, e->data.lhs.range);
