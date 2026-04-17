@@ -4,8 +4,8 @@ Including a simple and fast prograaming language. With no run time cost and fast
 Warning: This language is still on Alpha version. Full pre beta on 6/1/26. Wait for the release same time you can explore our compiler source code or if you have found an issues. Feel free to report it to us for fixing!
 
 For more informations. 
-You can ofcource join our discrod community: [https://discord.gg/CAemjRc4ya](Join discord!)
-Check out our website too: [https://vixlanguage.github.io](Check out our website!)
+You can ofcource join our discrod community: https://discord.gg/CAemjRc4ya
+Check out our website too: https://vixlanguage.github.io
 
 ## > Why Vix?
 
