@@ -30,7 +30,7 @@ It preide you with so simple and easy to follow error messages when you really h
 |
 | create input = input("ask me something")
 | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-| > Unkowen type cannot be knowen in compilion time
+| > Unknow type cannot be knowen in compilion time
 |--------------------------------------------------
 |
 |-> help:
