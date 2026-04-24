@@ -1,0 +1,41 @@
+Date : 2026-04-21 22:54:46
+Directory : c:\Users\Client\Desktop\final\src
+Total : 12 files,  5209 codes, 229 comments, 827 blanks, all 6265 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| C        |         12 |      5,209 |        229 |        827 |      6,265 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++---------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                    | files      | code       | comment    | blank      | total      |
++---------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                       |         12 |      5,209 |        229 |        827 |      6,265 |
+| . (Files)                                               |          1 |        337 |          1 |         46 |        384 |
+| checker                                                 |          4 |      2,553 |        209 |        351 |      3,113 |
+| helper                                                  |          2 |        128 |          0 |         34 |        162 |
+| register                                                |          3 |        760 |         13 |        130 |        903 |
+| syntax                                                  |          2 |      1,431 |          6 |        266 |      1,703 |
++---------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++---------------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                                | language | code       | comment    | blank      | total      |
++---------------------------------------------------------+----------+------------+------------+------------+------------+
+| c:\Users\Client\Desktop\final\src\checker\expr.c        | C        |        523 |         69 |         91 |        683 |
+| c:\Users\Client\Desktop\final\src\checker\helper.c      | C        |        239 |          1 |         37 |        277 |
+| c:\Users\Client\Desktop\final\src\checker\operations.c  | C        |        227 |          2 |         28 |        257 |
+| c:\Users\Client\Desktop\final\src\checker\stmt.c        | C        |      1,564 |        137 |        195 |      1,896 |
+| c:\Users\Client\Desktop\final\src\helper\error.c        | C        |         50 |          0 |         15 |         65 |
+| c:\Users\Client\Desktop\final\src\helper\file_manager.c | C        |         78 |          0 |         19 |         97 |
+| c:\Users\Client\Desktop\final\src\main.c                | C        |        337 |          1 |         46 |        384 |
+| c:\Users\Client\Desktop\final\src\register\ir.c         | C        |          0 |          0 |          1 |          1 |
+| c:\Users\Client\Desktop\final\src\register\register.c   | C        |        760 |         13 |        128 |        901 |
+| c:\Users\Client\Desktop\final\src\register\type.c       | C        |          0 |          0 |          1 |          1 |
+| c:\Users\Client\Desktop\final\src\syntax\lexer.c        | C        |        273 |          0 |         52 |        325 |
+| c:\Users\Client\Desktop\final\src\syntax\parser.c       | C        |      1,158 |          6 |        214 |      1,378 |
+| Total                                                   |          |      5,209 |        229 |        827 |      6,265 |
++---------------------------------------------------------+----------+------------+------------+------------+------------+

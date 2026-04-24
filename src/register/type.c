@@ -10,7 +10,7 @@ RegisterEntry* register_get(Register* reg, StringView name);
 IR_Type str_type(void) {
     static IR_Type char_type = { .tag = IR_Type_Char };
     static IR_Type fields[2] = {
-        { .tag = IR_Type_Ptr, .data.ptr.inner = &char_type },  // pointer to static — OK
+        { .tag = IR_Type_Ptr, .data.ptr.inner = &char_type },
         { .tag = IR_Type_I64 },
     };
     return (IR_Type){ .tag = IR_Type_Struct, .data.named.name_id = 0 };

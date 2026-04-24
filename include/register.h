@@ -2,7 +2,7 @@
 #define REGISTER_H
 
 #include "third-party/khashl.h"
-#include "token/ast/ast.h"
+#include "ast.h"
 
 typedef enum {
     Reg_Var,
@@ -37,6 +37,8 @@ typedef struct {
     char* name;
     Type  type;
     EntityID eid;
+    SourceRange decl_range;
+    SourceRange decl_name_range;
     union {
         struct { Type type; VarMode mode; bool is_mut; } var;
         struct { Type type; VarMode mode; } let;
@@ -59,17 +61,17 @@ typedef struct {
     } data;
 } RegisterEntry;
 
-static inline khint_t string_view_hash(StringView view) {
+static inline khint_t string_hash(StringView view) {
     return kh_hash_bytes((int)view.len, (const unsigned char*)view.ptr);
 }
 
-static inline int string_view_eq(StringView a, StringView b) {
+static inline int string_eq(StringView a, StringView b) {
     return a.len == b.len && memcmp(a.ptr, b.ptr, a.len) == 0;
 }
 
-KHASHL_MAP_INIT(KH_LOCAL, RegisterTable, register_table, StringView, RegisterEntry, string_view_hash, string_view_eq)
+KHASHL_MAP_INIT(KH_LOCAL, RegisterTable, register_table, StringView, RegisterEntry, string_hash, string_eq)
 
-KHASHL_MAP_INIT(KH_LOCAL, PendingTable, pending_table, StringView, EntityID, string_view_hash, string_view_eq)
+KHASHL_MAP_INIT(KH_LOCAL, PendingTable, pending_table, StringView, EntityID, string_hash, string_eq)
 
 typedef struct {
     uint32_t next_id;
@@ -103,7 +105,7 @@ typedef struct {
     size_t      params_count;
 } GenericInstance;
 
-KHASHL_MAP_INIT(KH_LOCAL, GenericInstanceTable, generic_instance_table, StringView, GenericInstance, string_view_hash, string_view_eq)
+KHASHL_MAP_INIT(KH_LOCAL, GenericInstanceTable, generic_instance_table, StringView, GenericInstance, string_hash, string_eq)
 
 typedef struct {
     GenericInstanceTable* table;

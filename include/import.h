@@ -11,12 +11,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-char *strndup(const char *s, size_t n) {
+static inline char* strndup(const char* s, size_t n) {
     if (s == NULL) {
         return NULL;
     }
 
-    // Find the actual length to copy, up to n characters
     size_t len = 0;
     while (len < n && s[len] != '\0') {
         ++len;
@@ -113,6 +112,14 @@ static inline void arr__ensure_cap_impl(
         (size_t)(need), \
         sizeof(*(arr).data) \
     ))
+
+#define ERR_PUSH(list, _tag, _range, fmt, ...) do {     \
+    CheckerErr _e = {0};                                 \
+    _e.tag = (_tag);                                   \
+    _e.range = (_range);                                 \
+    snprintf(_e.msg, sizeof(_e.msg), fmt, ##__VA_ARGS__);\
+    checker_err_push((list), _e);                        \
+} while (0)
 
 #define ARR_MAKE_ROOM(arr, extra) \
     ARR_ENSURE_CAP((arr), (arr).len + (size_t)(extra))

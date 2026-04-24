@@ -1,0 +1,8 @@
+func main()
+    let a = 3
+
+    if a then
+        a += 33
+    end
+end
+

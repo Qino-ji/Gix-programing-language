@@ -1,0 +1,23 @@
+<h2>Struct Statement</h2>
+<p>Structs are composite data types that group related values together.</p>
+
+<h3>Struct Declaration</h3>
+<div class="code-block" data-lang="v">
+<code>struct Point {
+    x: float,
+    y: float
+}</code>
+</div>
+
+<h3>Creating Instances</h3>
+<div class="code-block" data-lang="v">
+<code>let origin = Point { x: 0.0, y: 0.0 };
+let p = Point { x: 10.0, y: 20.0 };</code>
+</div>
+
+<h3>Tuple Structs</h3>
+<div class="code-block" data-lang="v">
+<code>struct RGB(int, int, int);
+
+let red = RGB(255, 0, 0);</code>
+</div>

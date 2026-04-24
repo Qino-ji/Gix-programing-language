@@ -1,0 +1,54 @@
+Date : 2026-04-21 22:55:00
+Directory : c:\Users\Client\Desktop\final\include
+Total : 21 files,  -3872 codes, -177 comments, -628 blanks, all -4677 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| C        |         21 |     -3,872 |       -177 |       -628 |     -4,677 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                       | files      | code       | comment    | blank      | total      |
++------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                          |         21 |     -3,872 |       -177 |       -628 |     -4,677 |
+| . (Files)                                                  |          8 |        937 |          1 |        144 |      1,082 |
+| ..                                                         |         12 |     -5,209 |       -229 |       -827 |     -6,265 |
+| ..\src                                                     |         12 |     -5,209 |       -229 |       -827 |     -6,265 |
+| ..\src (Files)                                             |          1 |       -337 |         -1 |        -46 |       -384 |
+| ..\src\checker                                             |          4 |     -2,553 |       -209 |       -351 |     -3,113 |
+| ..\src\helper                                              |          2 |       -128 |          0 |        -34 |       -162 |
+| ..\src\register                                            |          3 |       -760 |        -13 |       -130 |       -903 |
+| ..\src\syntax                                              |          2 |     -1,431 |         -6 |       -266 |     -1,703 |
+| third-party                                                |          1 |        400 |         51 |         55 |        506 |
++------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++------------------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                                   | language | code       | comment    | blank      | total      |
++------------------------------------------------------------+----------+------------+------------+------------+------------+
+| c:\Users\Client\Desktop\final\include\ast.h                | C        |        404 |          0 |         47 |        451 |
+| c:\Users\Client\Desktop\final\include\error.h              | C        |        268 |          0 |         27 |        295 |
+| c:\Users\Client\Desktop\final\include\file_manager.h       | C        |         26 |          0 |          8 |         34 |
+| c:\Users\Client\Desktop\final\include\import.h             | C        |        117 |          1 |         28 |        146 |
+| c:\Users\Client\Desktop\final\include\ir.h                 | C        |          4 |          0 |          3 |          7 |
+| c:\Users\Client\Desktop\final\include\lexer.h              | C        |          8 |          0 |          4 |         12 |
+| c:\Users\Client\Desktop\final\include\parser.h             | C        |         17 |          0 |          7 |         24 |
+| c:\Users\Client\Desktop\final\include\register.h           | C        |         93 |          0 |         20 |        113 |
+| c:\Users\Client\Desktop\final\include\third-party\khashl.h | C        |        400 |         51 |         55 |        506 |
+| c:\Users\Client\Desktop\final\src\checker\expr.c           | C        |       -523 |        -69 |        -91 |       -683 |
+| c:\Users\Client\Desktop\final\src\checker\helper.c         | C        |       -239 |         -1 |        -37 |       -277 |
+| c:\Users\Client\Desktop\final\src\checker\operations.c     | C        |       -227 |         -2 |        -28 |       -257 |
+| c:\Users\Client\Desktop\final\src\checker\stmt.c           | C        |     -1,564 |       -137 |       -195 |     -1,896 |
+| c:\Users\Client\Desktop\final\src\helper\error.c           | C        |        -50 |          0 |        -15 |        -65 |
+| c:\Users\Client\Desktop\final\src\helper\file_manager.c    | C        |        -78 |          0 |        -19 |        -97 |
+| c:\Users\Client\Desktop\final\src\main.c                   | C        |       -337 |         -1 |        -46 |       -384 |
+| c:\Users\Client\Desktop\final\src\register\ir.c            | C        |          0 |          0 |         -1 |         -1 |
+| c:\Users\Client\Desktop\final\src\register\register.c      | C        |       -760 |        -13 |       -128 |       -901 |
+| c:\Users\Client\Desktop\final\src\register\type.c          | C        |          0 |          0 |         -1 |         -1 |
+| c:\Users\Client\Desktop\final\src\syntax\lexer.c           | C        |       -273 |          0 |        -52 |       -325 |
+| c:\Users\Client\Desktop\final\src\syntax\parser.c          | C        |     -1,158 |         -6 |       -214 |     -1,378 |
+| Total                                                      |          |     -3,872 |       -177 |       -628 |     -4,677 |
++------------------------------------------------------------+----------+------------+------------+------------+------------+

@@ -1,0 +1,15 @@
+"filename", "language", "C", "comment", "blank", "total"
+"c:\Users\Client\Desktop\final\src\checker\expr.c", "C", 522, 0, 86, 608
+"c:\Users\Client\Desktop\final\src\checker\helper.c", "C", 236, 0, 39, 275
+"c:\Users\Client\Desktop\final\src\checker\operations.c", "C", 227, 2, 28, 257
+"c:\Users\Client\Desktop\final\src\checker\stmt.c", "C", 1444, 0, 170, 1614
+"c:\Users\Client\Desktop\final\src\helper\error.c", "C", 50, 0, 15, 65
+"c:\Users\Client\Desktop\final\src\helper\file_manager.c", "C", 78, 0, 19, 97
+"c:\Users\Client\Desktop\final\src\main.c", "C", 337, 1, 46, 384
+"c:\Users\Client\Desktop\final\src\register\diagnostic.c", "C", 222, 17, 31, 270
+"c:\Users\Client\Desktop\final\src\register\ir.c", "C", 0, 0, 1, 1
+"c:\Users\Client\Desktop\final\src\register\register.c", "C", 764, 12, 128, 904
+"c:\Users\Client\Desktop\final\src\register\type.c", "C", 1, 0, 0, 1
+"c:\Users\Client\Desktop\final\src\syntax\lexer.c", "C", 273, 0, 52, 325
+"c:\Users\Client\Desktop\final\src\syntax\parser.c", "C", 1158, 0, 215, 1373
+"Total", "-", 5312, 32, 830, 6174
