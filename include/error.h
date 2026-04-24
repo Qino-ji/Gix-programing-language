@@ -288,6 +288,7 @@ typedef struct CheckerErrList {
 typedef struct {
     const char** filenames;     
     const char** sources;       
+    LineStarts* line_starts;
     size_t file_count;
 } FileTable;
 

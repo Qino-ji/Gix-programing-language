@@ -317,16 +317,6 @@ int main(int argc, char** argv) {
     FileManager files = file_manager_new();
     FileId file_id = file_manager_add(&files, filename, source);
 
-    FileTable table = {0};
-    table.file_count = files.slots.len;
-    table.filenames = calloc(table.file_count, sizeof(*table.filenames));
-    table.sources = calloc(table.file_count, sizeof(*table.sources));
-    for (size_t i = 0; i < table.file_count; i++) {
-        table.filenames[i] = files.slots.data[i].path;
-        table.sources[i] = files.slots.data[i].source;
-    }
-    checker_set_file_table(table);
-
     printf("=== RUNNING: %s ===\n", filename);
 
     Parser parser = parser_new(lexer_new(file_id,files.slots.data[file_id].source));
@@ -343,6 +333,21 @@ int main(int argc, char** argv) {
         safety++;
     }
 
+    ARR_PUSH(parser.lexer.line_starts, source + strlen(source) + 1);
+    file_manager_set_line_starts(&files, file_id, parser.lexer.line_starts);
+
+    FileTable table = {0};
+    table.file_count = files.slots.len;
+    table.filenames = calloc(table.file_count, sizeof(*table.filenames));
+    table.sources = calloc(table.file_count, sizeof(*table.sources));
+    table.line_starts = calloc(table.file_count, sizeof(*table.line_starts));
+    for (size_t i = 0; i < table.file_count; i++) {
+        table.filenames[i] = files.slots.data[i].path;
+        table.sources[i] = files.slots.data[i].source;
+        table.line_starts[i] = files.slots.data[i].line_starts;
+    }
+    checker_set_file_table(table);
+
     printf("\n=== AST ===\n");
     for (size_t i = 0; i < stmt_count; i++)
         print_statement(program[i], 0);
@@ -356,6 +361,7 @@ int main(int argc, char** argv) {
     free(errors.errors);
     free((void*)table.filenames);
     free((void*)table.sources);
+    free(table.line_starts);
     file_manager_free(&files);
     free(source);
 

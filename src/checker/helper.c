@@ -148,6 +148,44 @@ bool param_name_eq(Param* a, Param* b) {
     return alen == blen && memcmp(a->name.start, b->name.start, alen) == 0;
 }
 
+static bool body_always_exits(Stmts* body, size_t body_count);
+
+static bool stmt_always_exits_body(Stmts* stmt) {
+    if (!stmt) return false;
+
+    switch (stmt->tag) {
+        case Stmt_Returns:
+        case Stmt_Continues:
+            return true;
+
+        case Stmt_Ifs:
+            return stmt->data.ifs.else_body_count > 0 &&
+                   body_always_exits(stmt->data.ifs.body, stmt->data.ifs.body_count) &&
+                   body_always_exits(stmt->data.ifs.else_body, stmt->data.ifs.else_body_count);
+
+        case Stmt_Matchs: {
+            if (stmt->data.matchs.default_body_count == 0) return false;
+
+            for (size_t i = 0; i < stmt->data.matchs.cases_count; i++) {
+                MatchArm* arm = &stmt->data.matchs.cases[i];
+                if (!body_always_exits(arm->body, arm->body_count)) {
+                    return false;
+                }
+            }
+
+            return body_always_exits(stmt->data.matchs.default_body, stmt->data.matchs.default_body_count);
+        }
+
+        default:
+            return false;
+    }
+}
+
+static bool body_always_exits(Stmts* body, size_t body_count) {
+    if (body_count == 0) return false;
+    return stmt_always_exits_body(&body[body_count - 1]);
+}
+
 bool body_has_return(Stmts* body, size_t body_count) {
     for (size_t i = 0; i < body_count; i++) {
         Stmts* s = &body[i];
@@ -178,7 +216,7 @@ bool body_has_return(Stmts* body, size_t body_count) {
 
 bool body_has_unreachable(Stmts* body, size_t body_count) {
     for (size_t i = 0; i < body_count; i++) {
-        if (body[i].tag == Stmt_Returns || body[i].tag == Stmt_Continues) {
+        if (stmt_always_exits_body(&body[i])) {
             return i + 1 < body_count;
         }
     }
@@ -192,12 +230,12 @@ bool expr_references_var(Exprs* expr, StringView var) {
     switch (expr->tag) {
         case Expr_Identifiers: {
             StringView name = string_range(expr->data.identifiers.name);
-            return name.len == var.len && memcmp(name.ptr, var.ptr, var.len) == 0;
+            return sv_equal(name, var);
         }
 
         case Expr_Vars: {
             StringView name = string_range(expr->data.vars.name);
-            return name.len == var.len && memcmp(name.ptr, var.ptr, var.len) == 0;
+            return sv_equal(name, var);
         }
 
         case Expr_BinaryOps:
@@ -253,7 +291,7 @@ bool stmt_references_var(Stmts* stmt, StringView var) {
 
         case Stmt_Fors: {
             StringView for_var = string_range(stmt->data.fors._var);
-            if (for_var.len == var.len && memcmp(for_var.ptr, var.ptr, var.len) == 0) return false;
+            if (sv_equal(for_var, var)) return false;
             if (expr_references_var(&stmt->data.fors.iter, var)) return true;
             for (size_t i = 0; i < stmt->data.fors.body_count; i++) if (stmt_references_var(&stmt->data.fors.body[i], var)) return true;
             return false;

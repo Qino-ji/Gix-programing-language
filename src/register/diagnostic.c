@@ -46,13 +46,31 @@ typedef struct {
     const char* note_detail_2;
 } DiagnosticRenderSpec;
 
-static SourcePos resolve_pos(const char* source, const char* ptr) {
+static SourcePos resolve_pos(size_t file_id, const char* source, const char* ptr) {
     SourcePos pos = { .line = 1, .col = 1, .line_start = source };
+
+    if (!source || !ptr) return pos;
+
+    if (g_table.line_starts && file_id < g_table.file_count) {
+        LineStarts starts = g_table.line_starts[file_id];
+        size_t line_index = get_line_num(&starts, (uintptr_t)ptr);
+
+        if (line_index != (size_t)-1) {
+            pos.line = line_index + 1;
+            pos.line_start = starts.data[line_index];
+            pos.col = (size_t)(ptr - pos.line_start) + 1;
+
+            const char* end = pos.line_start;
+            while (*end && *end != '\n') end++;
+            pos.line_len = (size_t)(end - pos.line_start);
+            return pos;
+        }
+    }
 
     for (const char* p = source; p < ptr; p++) {
         if (*p == '\n') {
             pos.line++;
-            pos.col        = 1;
+            pos.col = 1;
             pos.line_start = p + 1;
         } else {
             pos.col++;
@@ -62,7 +80,6 @@ static SourcePos resolve_pos(const char* source, const char* ptr) {
     const char* end = pos.line_start;
     while (*end && *end != '\n') end++;
     pos.line_len = (size_t)(end - pos.line_start);
-
     return pos;
 }
 
@@ -138,7 +155,7 @@ static bool print_replaced_line(
 static void report_error_visual(const DiagnosticRenderSpec* spec, const char* source) {
     if (!spec || !source || !spec->primary_range.start || !spec->primary_range.end) return;
 
-    SourcePos pos = resolve_pos(source, spec->primary_range.start);
+    SourcePos pos = resolve_pos(spec->primary_range.file_id, source, spec->primary_range.start);
     size_t range_len = (size_t)(spec->primary_range.end - spec->primary_range.start);
     const char* filename = file_name(spec->primary_range.file_id);
 
@@ -151,7 +168,7 @@ static void report_error_visual(const DiagnosticRenderSpec* spec, const char* so
     size_t max_line = pos.line;
 
     if (has_related) {
-        SourcePos rp = resolve_pos(source, spec->related.line_range.start);
+        SourcePos rp = resolve_pos(spec->related.line_range.file_id, source, spec->related.line_range.start);
     
         if (rp.line > max_line) max_line = rp.line;
     }
@@ -165,7 +182,7 @@ static void report_error_visual(const DiagnosticRenderSpec* spec, const char* so
     printf(C_BLUE "%*s|\n" C_RESET, gutter + 1, "");
 
     if (has_related) {
-        SourcePos related_pos = resolve_pos(source, spec->related.line_range.start);
+        SourcePos related_pos = resolve_pos(spec->related.line_range.file_id, source, spec->related.line_range.start);
 
         printf(C_BLUE "%*zu  |" C_RESET " %.*s\n", gutter, related_pos.line, (int)related_pos.line_len, related_pos.line_start);
 
@@ -173,7 +190,7 @@ static void report_error_visual(const DiagnosticRenderSpec* spec, const char* so
         size_t underline_len = related_pos.line_len;
     
         if (spec->related.highlight_range.start && spec->related.highlight_range.end) {
-            SourcePos hp = resolve_pos(source, spec->related.highlight_range.start);
+            SourcePos hp = resolve_pos(spec->related.highlight_range.file_id, source, spec->related.highlight_range.start);
 
             underline_col = hp.col;
             underline_len = (size_t)(spec->related.highlight_range.end - spec->related.highlight_range.start);
@@ -210,7 +227,7 @@ static void report_error_visual(const DiagnosticRenderSpec* spec, const char* so
     printf(C_BLUE "%*s  |\n" C_RESET, gutter, "");
 
     if (spec->help_label && has_help_content && has_related) {
-        SourcePos related_pos = resolve_pos(source, spec->related.line_range.start);
+        SourcePos related_pos = resolve_pos(spec->related.line_range.file_id, source, spec->related.line_range.start);
 
         printf(C_GREEN "help" C_RESET " - %s " C_GREEN "->" C_RESET "\n", spec->help_hint ? spec->help_hint : "");
         printf(C_BLUE "%*s  |\n" C_RESET, gutter, "");
