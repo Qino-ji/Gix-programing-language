@@ -1,5 +1,5 @@
 # Vix Programming Language
-Including a simple and fast prograaming language. With no run time cost and fast compiling time. With simple to use and simple to setup and use in the future. No worries about diffecutly of memory safety. With no GC! this all will be done with simple and readable syntax! and no worrying about slow compiling time can cause with too!
+Including a simple and fast prograaming language. With simple to use and simple to setup and use in the future. No worries about slow compiling time, diffecult usage. With so simple usage and syntax you can type your code easily and fast, it will granty will be fully readable. Unlike C++ vix is fully memory manule and give you the full control exacutly like C with simple usage/syntax and so fast compilion time. Vix is perfect for low level and is good too for high level including our optional ARC. Not only that, vix has smart type system may can even figer out the type of your full codebase easily in compiling time. And you have modules you can use like `Result/Option` or smart pointers too! and mutiblity.
 
 Warning: This language is still on Alpha version. Full pre beta on 6/1/26. Wait for the release same time you can explore our compiler source code or if you have found an issues. Feel free to report it to us for fixing!
 
@@ -9,7 +9,7 @@ Check out our website too: https://vixlanguage.github.io
 
 ## > Why Vix?
 
-Vix is fully memory safe with predition if all system programming features under no cost of run time performance. And this all does not effect compiling times too. Vix has so fast and smart compiler that predice programs in fastest as possible. This all under full easy and readable syntax made for anyone to can read or understand. Here an example of syntaxs you can really use in vix:
+Vix is fully unsafe language with full control and no worries. Unlike C vix is easier to setup/use and with simple syntax and type system you can easily write anything you want! Recommanded for real and low level projects or even high level with our ARC optional system. And you have modules you can use like `Result/Option` or smart pointers too! and mutiblity Explore our syntax:
 
 ```vix
 func main()
@@ -54,7 +54,6 @@ vix install library_name # Install any library you want or framework or even cus
 ##  Features
 
 - **Fast**: Performance comparable to C/C++ using LLVM ( Clang++ Compiler )
-- **Memory Safe**: Built in safety without garbage collection overhead and using borrow checker and ownership system
 - **Simple Syntax**: Easy to read and write, quick to learn and develop with. No using of "{}" only "end"
 - **Flexible**: Write low level system code or high level applications fast and easily
 - **Error handling & Help**: Easy to read & know the issues from the error msg
