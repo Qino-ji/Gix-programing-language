@@ -117,7 +117,6 @@ static inline void arr__ensure_cap_impl(
     CheckerErr _e = {0};                                 \
     _e.tag = (_tag);                                   \
     _e.range = (_range);                                 \
-    snprintf(_e.msg, sizeof(_e.msg), fmt, ##__VA_ARGS__);\
     checker_err_push((list), _e);                        \
 } while (0)
 

@@ -14,6 +14,38 @@
 
 static FileTable g_table = {0};
 
+typedef struct {
+    size_t line;
+    size_t col;
+    const char* line_start;
+    size_t line_len;
+} SourcePos;
+
+typedef struct {
+    bool enabled;
+    SourceRange line_range;
+    SourceRange highlight_range;
+    const char* annotation_prefix;
+    StringView annotation_name;
+    const char* annotation_suffix;
+    const char* replacement_from;
+    const char* replacement_to;
+} RelatedSnippet;
+
+typedef struct {
+    CheckerErrTag error_id;
+    SourceRange primary_range;
+    const char* title;
+    const char* caret_prefix;
+    StringView caret_name;
+    RelatedSnippet related;
+    const char* help_label;
+    const char* help_hint;
+    const char* note_label;
+    const char* note_detail;
+    const char* note_detail_2;
+} DiagnosticRenderSpec;
+
 static SourcePos resolve_pos(const char* source, const char* ptr) {
     SourcePos pos = { .line = 1, .col = 1, .line_start = source };
 
@@ -56,35 +88,51 @@ static const char* find_substr_n(const char* hay, size_t hay_len, const char* ne
     return NULL;
 }
 
-static bool replace_binding_keyword(char* out, size_t out_cap, const char* line_start,size_t line_len, const char* from_kw, const char* to_kw) {
-    if (!out || out_cap == 0 || !line_start || !from_kw || !to_kw) return false;
+static void print_string_view(StringView view) {
+    if (view.ptr && view.len) {
+        printf("%.*s", (int)view.len, view.ptr);
+    }
+}
+
+static bool has_string_view(StringView view) {
+    return view.ptr != NULL && view.len != 0;
+}
+
+static void print_related_annotation(const RelatedSnippet* related) {
+    if (!related) return;
+    if (related->annotation_prefix) printf("%s", related->annotation_prefix);
+    if (has_string_view(related->annotation_name)) {
+        if (related->annotation_prefix) putchar(' ');
+        print_string_view(related->annotation_name);
+    }
+    if (related->annotation_suffix) {
+        if (related->annotation_prefix || has_string_view(related->annotation_name)) putchar(' ');
+        printf("%s", related->annotation_suffix);
+    }
+}
+
+static bool print_replaced_line(
+    const char* line_start,
+    size_t line_len,
+    const char* from_kw,
+    const char* to_kw
+) {
+    if (!line_start || !to_kw) return false;
+    if (!from_kw) {
+        print_snippet_body(line_start, line_len);
+        return true;
+    }
 
     size_t from_len = strlen(from_kw);
-    size_t to_len = strlen(to_kw);
     const char* kw = find_substr_n(line_start, line_len, from_kw, from_len);
-
     if (!kw) return false;
 
     size_t prefix_len = (size_t)(kw - line_start);
     size_t suffix_off = prefix_len + from_len;
     size_t suffix_len = line_len - suffix_off;
-    size_t total_len = prefix_len + to_len + suffix_len;
 
-    if (total_len + 1 > out_cap) return false;
-
-    memcpy(out, line_start, prefix_len);
-    memcpy(out + prefix_len, to_kw, to_len);
-    memcpy(out + prefix_len + to_len, line_start + suffix_off, suffix_len);
-    out[total_len] = '\0';
-
+    printf("%.*s%s%.*s", (int)prefix_len, line_start, to_kw, (int)suffix_len, line_start + suffix_off);
     return true;
-}
-
-static void format_string_view(char* out, size_t out_cap, StringView view) {
-    if (!out || out_cap == 0) return;
-    if (!view.ptr || view.len == 0) { out[0] = '\0'; return; }
-
-    snprintf(out, out_cap, "%.*s", (int)view.len, view.ptr);
 }
 
 static void report_error_visual(const DiagnosticRenderSpec* spec, const char* source) {
@@ -98,7 +146,7 @@ static void report_error_visual(const DiagnosticRenderSpec* spec, const char* so
     if (!filename) filename = "<unknown>";
 
     bool has_related = spec->related.enabled && spec->related.line_range.start && spec->related.line_range.end;
-    bool has_help_content = has_related || spec->related.replacement_line[0] != '\0';
+    bool has_help_content = has_related;
 
     size_t max_line = pos.line;
 
@@ -136,8 +184,11 @@ static void report_error_visual(const DiagnosticRenderSpec* spec, const char* so
         printf(C_BLUE "%*s  |" C_RESET " ", gutter, ""); repeat_char(' ', underline_col - 1);
         printf(C_DIM); repeat_char('-', underline_len);
 
-        if (spec->related.annotation) printf(" %s" C_RESET "\n", spec->related.annotation);
-        else printf(C_RESET "\n");
+        if (spec->related.annotation_prefix || has_string_view(spec->related.annotation_name)) {
+            putchar(' ');
+            print_related_annotation(&spec->related);
+            printf(C_RESET "\n");
+        } else printf(C_RESET "\n");
 
         printf(C_BLUE "%*s  |\n" C_RESET, gutter, "");
     }
@@ -146,8 +197,15 @@ static void report_error_visual(const DiagnosticRenderSpec* spec, const char* so
 
     printf(C_BLUE "%*s  |" C_RESET " ", gutter, ""); repeat_char(' ', pos.col - 1);
     printf(C_BOLD_RED); repeat_char('^', range_len);
-    if (spec->caret_label) printf(" %s" C_RESET "\n", spec->caret_label);
-    else printf(C_RESET "\n");
+    if (spec->caret_prefix || has_string_view(spec->caret_name)) {
+        putchar(' ');
+        if (has_string_view(spec->caret_name)) {
+            print_string_view(spec->caret_name);
+            if (spec->caret_prefix) putchar(' ');
+        }
+        if (spec->caret_prefix) printf("%s", spec->caret_prefix);
+        printf(C_RESET "\n");
+    } else printf(C_RESET "\n");
 
     printf(C_BLUE "%*s  |\n" C_RESET, gutter, "");
 
@@ -160,7 +218,17 @@ static void report_error_visual(const DiagnosticRenderSpec* spec, const char* so
         print_snippet_body(related_pos.line_start, related_pos.line_len);
         printf("\n");
 
-        if (spec->related.replacement_line[0] != '\0') { printf(C_BLUE "%*s  |" C_RESET " " C_GREEN "+" C_RESET " %s\n", gutter, "", spec->related.replacement_line); }
+        if (spec->related.replacement_to) {
+            printf(C_BLUE "%*s  |" C_RESET " " C_GREEN "+" C_RESET " ", gutter, "");
+            if (!print_replaced_line(
+                    related_pos.line_start,
+                    related_pos.line_len,
+                    spec->related.replacement_from,
+                    spec->related.replacement_to)) {
+                print_snippet_body(related_pos.line_start, related_pos.line_len);
+            }
+            printf("\n");
+        }
 
         printf(C_BLUE "%*s  |\n" C_RESET, gutter, "");
     }
@@ -178,58 +246,32 @@ void checker_set_file_table(FileTable table) { g_table = table; }
 static DiagnosticRenderSpec build_render_spec(CheckerErr err) {
     DiagnosticRenderSpec spec = {
         .error_id = err.tag,
-        .title = err.msg[0] ? err.msg : "unknown error",
+        .title = "unknown error",
         .note_label = NULL,
     };
 
     switch (err.tag) {
         case Err_Tag_VNM: {
-            char var_name[128] = {0};
-            static char fallback_replacement[256];
-
             spec.primary_range = err.data.vnm.range;
             spec.title = err.data.vnm.binding_kind.ptr && strcmp(err.data.vnm.binding_kind.ptr, "let") == 0 ? "pushing data to immutable variable" : "cannot assign to immutable binding";
             spec.related.enabled = err.data.vnm.decl_range.start && err.data.vnm.decl_range.end;
             spec.related.line_range = err.data.vnm.decl_range;
             spec.related.highlight_range = err.data.vnm.decl_name_range.start && err.data.vnm.decl_name_range.end ? err.data.vnm.decl_name_range : err.data.vnm.decl_range;
+            spec.related.annotation_prefix = "declare variable";
+            spec.related.annotation_name = err.data.vnm.var_name;
+            spec.related.annotation_suffix = "as immutable";
             spec.help_label = "help";
             spec.help_hint = "change to var";
             spec.note_label = "note";
             spec.note_detail = "immutable is unlike mutable variables, cannot change their data after declaring it";
             spec.note_detail_2 = "immutable variables that doesn't use 'var'";
-
-            static char caret_label[256];
-            static char related_annotation[256];
-            format_string_view(var_name, sizeof(var_name), err.data.vnm.var_name);
-            if (var_name[0] != '\0') {
-                snprintf(related_annotation, sizeof(related_annotation), "declare variable %s as immutable", var_name); spec.related.annotation = related_annotation;
-                snprintf(caret_label, sizeof(caret_label), "%s is immutable variable", var_name); spec.caret_label = caret_label;
-            } else {
-                spec.related.annotation = "declare variable as immutable";
-                spec.caret_label = "immutable variable";
-            }
+            spec.caret_name = err.data.vnm.var_name;
+            spec.caret_prefix = "is immutable variable";
 
             if (spec.related.enabled && err.data.vnm.binding_kind.ptr &&
                 strcmp(err.data.vnm.binding_kind.ptr, "let") == 0) {
-                const char* source = get_source(spec.primary_range.file_id);
-
-                if (source) {
-                    SourcePos related_pos = resolve_pos(source, spec.related.line_range.start);
-                    spec.related.line_range.file_id = spec.primary_range.file_id;
-                    replace_binding_keyword(
-                        spec.related.replacement_line,
-                        sizeof(spec.related.replacement_line),
-                        related_pos.line_start,
-                        related_pos.line_len,
-                        "let",
-                        "var"
-                    );
-                }
-
-                if (spec.related.replacement_line[0] == '\0' && var_name[0] != '\0') {
-                    snprintf(fallback_replacement, sizeof(fallback_replacement), "var %s = ...", var_name);
-                    snprintf(spec.related.replacement_line, sizeof(spec.related.replacement_line), "%s", fallback_replacement);
-                }
+                spec.related.replacement_from = "let";
+                spec.related.replacement_to = "var";
             }
             break;
         }

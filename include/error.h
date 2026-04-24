@@ -162,7 +162,6 @@ typedef enum {
 typedef struct {
     CheckerErrTag tag;
     SourceRange range;    
-    char msg[256];  
     union {
         Err_VMV vmv;
         Err_VSF vsf;
@@ -283,8 +282,7 @@ typedef struct CheckerErrList {
     size_t count;
     size_t cap;
     CheckerErrTag tag;
-    SourceRange range;    
-    char msg[256];  
+    SourceRange range;
 } CheckerErrList;
 
 typedef struct {
@@ -292,39 +290,6 @@ typedef struct {
     const char** sources;       
     size_t file_count;
 } FileTable;
-
-typedef struct {
-    ARR(char*) ptrs;
-} StringPool;
-
-typedef struct {
-    size_t line;       
-    size_t col;        
-    const char* line_start; 
-    size_t line_len;   
-} SourcePos;
-
-typedef struct {
-    bool enabled;
-    SourceRange line_range;
-    SourceRange highlight_range;
-    const char* annotation;
-    char replacement_line[512];
-} RelatedSnippet;
-
-typedef struct {
-    CheckerErrTag error_id;
-    SourceRange primary_range;
-    const char* title;
-    const char* caret_label;
-    RelatedSnippet related;
-    const char* help_label;
-    const char* help_hint;
-    const char* note_label;
-    const char* note_detail;
-    const char* note_detail_2;
-} DiagnosticRenderSpec;
-
 
 void checker_err_push(CheckerErrList* list, CheckerErr err);
 void checker_set_file_table(FileTable table);
