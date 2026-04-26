@@ -18,6 +18,8 @@ typedef enum {
     NEqs,
     Equalss,
     Ampersands,
+    Lambdas,
+    Externs,
     Pipes,
     Carets,
     Tildes,
@@ -353,6 +355,22 @@ typedef struct {
     size_t col;
 } MatchArm;
 
+typedef struct {
+    SourceRange name;
+    SourceRange return_type;
+    Param* params;
+    size_t params_count;
+    SourceRange ffi_type;
+    bool has_ffi;
+} ExternFunction;
+
+typedef struct {
+    SourceRange abi;
+    ExternFunction* funcs;
+    size_t funcs_count;
+    SourceRange range;
+} ExternBlock;
+
 typedef enum {
     Stmt_Functions,
     Stmt_Classes,
@@ -363,6 +381,7 @@ typedef enum {
     Stmt_Unsafes,
     Stmt_Whiles,
     Stmt_Ifs,
+    Stmt_Externs,
     Stmt_Fors,
     Stmt_Returns,
     Stmt_Vars,
@@ -412,6 +431,8 @@ struct Stmts {
         struct { SourceRange name; SourceRange c_type; bool is_pub; SourceRange range; } locals;
         struct { SourceRange name; SourceRange c_type; bool has_value; Exprs value; bool is_pub; SourceRange range; } consts;
         struct { Exprs expr; } expr_stmt;
+        struct { SourceRange abi; SourceRange ffi; ExternFunction* funcs; size_t funcs_count; bool is_pub; } extern_;
+        struct { ExternBlock block; SourceRange ffi; SourceRange range; } externs;
     } data;
 };
 

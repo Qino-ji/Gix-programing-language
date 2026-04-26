@@ -1732,9 +1732,7 @@ void resolve_generic_call(Exprs* call, Register* reg, GenericRegistry* greg, Che
     }
 
     khint_t existing_it = generic_instance_table_get(greg->table, func_name_sv);
-    bool has_matching = existing_it != kh_end(greg->table)
-        && kh_val(greg->table, existing_it).args_count > 0
-        && kh_val(greg->table, existing_it).args[0].type.tag == args[0].type.tag;
+    bool has_matching = existing_it != kh_end(greg->table) && kh_val(greg->table, existing_it).args_count > 0 && kh_val(greg->table, existing_it).args[0].type.tag == args[0].type.tag;
 
     if (has_matching) { free(args); return; }
 
@@ -1751,3 +1749,50 @@ void resolve_generic_call(Exprs* call, Register* reg, GenericRegistry* greg, Che
     khint_t it = generic_instance_table_put(greg->table, func_name_sv, &absent);
     kh_val(greg->table, it) = inst;
 }
+
+void check_extern_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
+    ExternBlock* block = &stmt->data.externs.block;
+    SourceRange range = block->range;
+
+    for (size_t i = 0; i < block->funcs_count; i++) {
+        ExternFunction* fn = &block->funcs[i];
+
+        for (size_t j = 0; j < fn->params_count; j++) {
+            Param* p = &fn->params[j];
+
+            if (range_eq(p->c_type, "void")) {
+                checker_err_push(errors, (CheckerErr){
+                    .tag = Err_Tag_VFT,
+                    .data.vft = {
+                        .range      = range,
+                        .field_name = string_range(p->name),
+                        .type_name  = string_range(fn->name),
+                    }
+                });
+            }
+
+            if (!is_builtin_type(p->c_type) && !register_get(reg, string_range(p->c_type))) {
+                checker_err_push(errors, (CheckerErr){
+                    .tag = Err_Tag_UFT,
+                    .data.uft = {
+                        .range = range,
+                        .field_name = string_range(p->name),
+                        .type_name  = string_range(p->c_type),
+                    }
+                });
+            }
+        }
+
+        if (!is_valid_return_type(fn->return_type) && !register_get(reg, string_range(fn->return_type))) {
+            checker_err_push(errors, (CheckerErr){
+                .tag = Err_Tag_UFT,
+                .data.uft = {
+                    .range = range,
+                    .field_name = string_range(fn->name),
+                    .type_name  = string_range(fn->return_type),
+                }
+            });
+        }
+    }
+}
+

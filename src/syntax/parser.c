@@ -1092,6 +1092,7 @@ Stmts operation_atom(Parser* self) {
 
     return (Stmts){0};
 }
+
 Operation operation_op(Parser* self) {
     parser_advance(self);
     LexerTokenTag op = 0;
@@ -1106,6 +1107,26 @@ Operation operation_op(Parser* self) {
     };
 }
 
+Stmts parser_ffi(Parser* self) {
+    parser_advance(self);
+
+    SourceRange result = {0};
+
+    if (parser_current(self).tag != LeftParens) return (Stmts){0}; parser_advance(self);
+    if (parser_current(self).tag != Strings) return (Stmts){0}; result = parser_current(self).range; parser_advance(self);
+    if (parser_current(self).tag != RightParens) return (Stmts){0}; parser_advance(self);
+
+    ExternBlock ex = parser_extern(self);
+
+    return (Stmts){
+        .tag = Stmt_Externs,
+        .data.externs = {
+            .block = ex,
+            .ffi = result,
+        }
+    };
+}
+
 Stmts parser_operation(Parser* self) {
     parser_advance(self);
 
@@ -1115,8 +1136,54 @@ Stmts parser_operation(Parser* self) {
 
     if (range_eq(range, "operation")) operation_op(self);
     if (range_eq(range, "atom")) operation_atom(self);
+    if (range_eq(range, "ffi")) operation_ffi(self);
 
     return (Stmts){0};
+}
+
+
+ExternBlock parser_extern(Parser* self) {
+    parser_advance(self);
+
+    SourceRange abi = {0};
+    ExternFuncArr funcs = {0};
+
+    if (parser_current(self).tag == Strings) { abi = parser_current(self).range; parser_advance(self); }
+
+    while (parser_current(self).tag != Ends && parser_current(self).tag != EOFs) {
+        if (parser_current(self).tag != Functions) { /* Expect a function */ } parser_advance(self);
+
+        ExternFunction fn = {0};
+
+        if (parser_current(self).tag == Identifier) { fn.name = parser_current(self).range; parser_advance(self); }
+        if (parser_current(self).tag == LeftParens) { parser_advance(self);
+            ParamArr params = {0};
+
+            while (parser_current(self).tag != RightParens && parser_current(self).tag != EOFs) {
+                Param p = {0};
+                if (parser_current(self).tag == Identifier) { p.name = parser_current(self).range; parser_advance(self); }
+                if (parser_current(self).tag == Colons) parser_advance(self); p.c_type = parser_type(self).data.custom.name; ARR_PUSH(params, p);
+                if (parser_current(self).tag == Commas) parser_advance(self);
+            }
+
+            if (parser_current(self).tag == RightParens) parser_advance(self);
+            fn.params = params.data;
+            fn.params_count = params.len;
+        }
+
+        if (parser_current(self).tag == Colons) { parser_advance(self); fn.return_type = parser_type(self).data.custom.name; }
+
+        ARR_PUSH(funcs, fn);
+    }
+
+    if (parser_current(self).tag == Ends) parser_advance(self);
+
+    return (ExternBlock){
+        .abi = abi,
+        .funcs = funcs.data,
+        .funcs_count = funcs.len,
+        .range = range,
+    };
 }
 
 Stmts parser_match(Parser* self) {

@@ -233,6 +233,7 @@ static void lexer_words(Lexer* self) {
     else if (strcmp(word, "false")    == 0) self->top.tag = Falses;
     else if (strcmp(word, "continue") == 0) self->top.tag = Continues;
     else if (strcmp(word, "break")    == 0) self->top.tag = Breaks;
+    else if (strcmp(word, "extern")  == 0) self->top.tag = Externs;
     else if (strcmp(word, "int")      == 0) { self->top.tag = Ints; self->top.data.value_int = 32; }
     else if (strcmp(word, "int8")     == 0) { self->top.tag = Ints; self->top.data.value_int = 8; }
     else if (strcmp(word, "int16")    == 0) { self->top.tag = Ints; self->top.data.value_int = 16; }

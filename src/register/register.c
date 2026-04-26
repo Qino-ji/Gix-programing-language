@@ -739,6 +739,41 @@ static void check_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors, Sourc
         }
 
         case Stmt_Matchs: check_match_stmt(stmt, reg, errors); break;
+        case Stmt_Externs: {
+            ExternBlock* block = &stmt->data.externs.block;
+            SourceRange ffi = stmt->data.externs.ffi;
+
+            register_insert(reg, string_range(block->abi), (RegisterEntry){
+                .tag = Reg_Extern,
+                .name = NULL,
+                .data.extern_ = {
+                    .abi = block->abi,
+                    .ffi = ffi,
+                    .funcs = block->funcs,
+                    .funcs_count = block->funcs_count,
+                    .is_pub = true,
+                }
+            });
+
+            for (size_t i = 0; i < block->funcs_count; i++) {
+                ExternFunction* fn = &block->funcs[i];
+                Type ret = resolve_type(fn->return_type, reg);
+                register_insert(reg, string_range(fn->name), (RegisterEntry){
+                    .tag = Reg_Function,
+                    .name = NULL,
+                    .type = ret,
+                    .data.function = {
+                        .return_type = ret,
+                        .params = fn->params,
+                        .params_count = fn->params_count,
+                        .is_pub = true,
+                    }
+                });
+            }
+
+            check_extern_stmt(stmt, reg, errors);
+            break;
+        }
         case Stmt_Functions: {
             check_function_stmt(stmt, reg, errors);
 
@@ -829,12 +864,49 @@ bool register_body(Stmts* body, size_t count, Register* reg, CheckerErrList* err
                 });
                 break;
             }
+            
+            case Stmt_Externs: {
+                ExternBlock* block = &s->data.externs.block;
+                SourceRange ffi = s->data.externs.ffi;
+
+                register_insert(reg, string_range(block->abi), (RegisterEntry){
+                    .tag = Reg_Extern,
+                    .name = NULL,
+                    .data.extern_ = {
+                        .abi = block->abi,
+                        .ffi = ffi,
+                        .funcs = block->funcs,
+                        .funcs_count = block->funcs_count,
+                        .is_pub = true,
+                    }
+                });
+
+                for (size_t i = 0; i < block->funcs_count; i++) {
+                    ExternFunction* fn = &block->funcs[i];
+                    Type ret = resolve_type(fn->return_type, reg);
+
+                    register_insert(reg, string_range(fn->name), (RegisterEntry){
+                        .tag = Reg_Function,
+                        .name = NULL,
+                        .type = ret,
+                        .data.function = {
+                            .return_type = ret,
+                            .params = fn->params,
+                            .params_count = fn->params_count,
+                            .is_pub = true,
+                        }
+                    });
+                }
+                break;
+            }
+    
             case Stmt_Classes:
                 register_class(s, reg, errors);
                 break;
             default: break;
         }
     }
+    
 
     SourceRange empty = {0};
     check_body(body, count, reg, errors, empty, NULL);
@@ -857,6 +929,7 @@ void check_expr(Exprs* expr, Register* reg, CheckerErrList* errors) {
             return;
         }
 
+
         case Expr_MethodCalls: {
             check_expr(expr->data.method_calls.object, reg, errors);
             for (size_t i = 0; i < expr->data.method_calls.args_count; i++)
@@ -864,10 +937,7 @@ void check_expr(Exprs* expr, Register* reg, CheckerErrList* errors) {
             return;
         }
 
-        case Expr_BinaryOps:
-            check_expr(expr->data.binary_ops.left,  reg, errors);
-            check_expr(expr->data.binary_ops.right, reg, errors);
-            return;
+        case Expr_BinaryOps: check_expr(expr->data.binary_ops.left,  reg, errors); check_expr(expr->data.binary_ops.right, reg, errors); return;
 
         case Expr_Identifiers: {
             StringView name = string_range(expr->data.identifiers.name);

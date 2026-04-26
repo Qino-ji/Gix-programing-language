@@ -14,6 +14,7 @@ typedef enum {
     Reg_Struct,
     Reg_Enum,
     Reg_Trait,
+    Reg_Extern,
     Reg_ExprFunctionCall,
     Reg_ExprClassCall,
     Reg_ExprStructCall,
@@ -57,6 +58,7 @@ typedef struct {
         struct { Type left_type; LexerTokenTag op; Type right_type; Type resolved_type; } expr_binary_op;
         struct { SourceRange name; Type resolved_type; } expr_identifier;
         struct { Type resolved_type; } expr_literal;
+        struct { SourceRange abi; SourceRange ffi; ExternFunction* funcs; size_t funcs_count; bool is_pub; } extern_;
         struct { SourceRange name; Type resolved_type; } expr_var;
     } data;
 } RegisterEntry;

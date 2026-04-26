@@ -4,262 +4,182 @@
 #include "import.h"
 #include "ast.h"
 
+typedef struct IR_Expr IR_Expr;
+typedef struct IR_Stmt IR_Stmt;
 
-typedef struct IR_Type IR_Type;
-typedef struct IR_Inst IR_Inst;
-typedef struct IR_StructDef IR_StructDef;
-typedef struct IR_EnumDef IR_EnumDef;
-typedef struct IR_MethodDef IR_MethodDef;
+typedef union {
+    int64_t int_val;
+    double float_val;
+    bool bool_val;
+    char char_val;
+    SourceRange str_range;
+} IR_LiteralData;
 
-typedef enum {
-    IR_Type_I8,
-    IR_Type_I16,
-    IR_Type_I32,
-    IR_Type_I64,
-    IR_Type_F32,
-    IR_Type_F64,
-    IR_Type_Bool,
-    IR_Type_Char,
-    IR_Type_Void,
-    IR_Type_Ptr,
-    IR_Type_Array,
-    IR_Type_Struct,
-    IR_Type_Enum,
-    IR_Type_Fn,
-} IR_TypeTag;
+typedef struct {
+    SourceRange name;
+    IR_Expr *val;
+} IR_FieldInit;
 
+typedef struct {
+    SourceRange name;
+    Type ty;
+    VarMode mode;
+} IR_Param;
 
-typedef enum {
-    IR_Add,
-    IR_Sub,
-    IR_Mul,
-    IR_Div,
-    IR_Mod,
-    IR_And,
-    IR_Or,
-    IR_Xor,
-    IR_Not,
-    IR_Shl,
-    IR_Shr,
-    IR_CmpEq,
-    IR_CmpNe,
-    IR_CmpLt,
-    IR_CmpLe,
-    IR_CmpGt,
-    IR_CmpGe,
-    IR_Alloca,
-    IR_Load,
-    IR_Store,
-    IR_GEP,
-    IR_FieldPtr,
-    IR_BitCast,
-    IR_ZExt,
-    IR_SExt,
-    IR_Trunc,
-    IR_FPToInt,
-    IR_IntToFP,
-    IR_Call,
-    IR_MethodCall,
-    IR_Return,
-    IR_Branch,
-    IR_Jump,
-    IR_Phi,
-    IR_Move,
-    IR_Nop,
-} IR_InstTag;
+typedef struct {
+    SourceRange name;
+    Type ty;
+} IR_FieldDef;
+
+typedef struct {
+    SourceRange name;
+    IR_FieldDef *fields;
+    size_t fields_count;
+} IR_VariantDef;
 
 typedef enum {
-    IR_Val_Const_Int,
-    IR_Val_Const_Float,
-    IR_Val_Const_Bool,
-    IR_Val_Const_Char,
-    IR_Val_Const_Null,
-    IR_Val_Reg,
-    IR_Val_Global,
-    IR_Val_Undef,
-} IR_ValTag;
+    CC_Default,
+    CC_C,
+    CC_Fast,
+    CC_Cold, 
+} CallingConv;
 
-struct IR_Type {
-    IR_TypeTag tag;
+typedef struct {
+    SourceRange name;
+    Type return_type;
+    IR_Param *params;
+    size_t params_count;
+    IR_Stmt *body;
+    size_t body_count;
+    bool is_pub;
+    bool is_unsafe;
+    bool has_operation;
+    LexerTokenTag operation_op;
+    CallingConv   cc;
+} IR_FuncDef;
+
+typedef struct {
+    Pattern  pattern;
+    IR_Stmt *body;
+    size_t   body_count;
+} IR_MatchArm;
+
+typedef enum {
+    IR_Expr_Literal,
+    IR_Expr_VarRef,
+    IR_Expr_BinOp,
+    IR_Expr_Call,
+    IR_Expr_MethodCall,
+    IR_Expr_MakeStruct,
+    IR_Expr_MakeClass,
+    IR_Expr_MakeEnum,
+    IR_Expr_Field,
+    IR_Expr_Index,
+    IR_Expr_Cast,
+    IR_Expr_Deref,
+    IR_Def_Extern,   
+} IR_ExprTag;
+
+struct IR_Expr {
+    IR_ExprTag  tag;
+    Type        ty;
+    SourceRange origin;
     union {
-        struct { IR_Type* inner; } ptr;
-        struct { IR_Type* inner; size_t len; } array;
-        struct { uint32_t name_id; } named;
-        struct {
-            IR_Type* ret;
-            IR_Type* params;
-            size_t params_count;
-        } fn;
+        struct { IR_LiteralData data; } literal;
+        struct { SourceRange name; uint32_t eid; } var_ref;
+        struct { LexerTokenTag op; IR_Expr *lhs; IR_Expr *rhs; } bin;
+        struct { SourceRange name; uint32_t eid; IR_Expr **args; size_t args_count; } call;
+        struct { IR_Expr *object; SourceRange method; uint32_t method_eid; IR_Expr **args; size_t args_count; } method_call;
+        struct { SourceRange name; uint32_t eid; IR_FieldInit *fields; size_t fields_count; } make_struct;
+        struct { SourceRange name; uint32_t eid; IR_Expr **args; size_t args_count; } make_class;
+        struct { SourceRange type_name; SourceRange variant; uint32_t eid; IR_Expr **args; size_t args_count; } make_enum;
+        struct { IR_Expr *object; SourceRange field; } field;
+        struct { IR_Expr *object; IR_Expr *index; } index;
+        struct { IR_Expr *expr; } cast;
+        struct { IR_Expr *ptr; } deref;
     } data;
 };
 
-typedef struct {
-    StringView name;
-    IR_Type    ty;
-} IR_FieldDef;
+typedef enum {
+    IR_Stmt_VarDecl,
+    IR_Stmt_LetDecl,
+    IR_Stmt_ConstDecl,
+    IR_Stmt_LocalDecl,
+    IR_Stmt_Assign,
+    IR_Stmt_Return,
+    IR_Stmt_If,
+    IR_Stmt_While,
+    IR_Stmt_For,
+    IR_Stmt_Match,
+    IR_Stmt_Expr,
+    IR_Stmt_SsaTemp,
+} IR_StmtTag;
 
-struct IR_StructDef {
-    uint32_t    name_id;
-    StringView  name;
-    IR_FieldDef* fields;
-    size_t      fields_count;
-    bool        is_pub;
-};
-
-typedef struct {
-    StringView name;
-    IR_Type    payload_ty;
-    bool       has_payload;
-} IR_EnumVariantDef;
-
-struct IR_EnumDef {
-    uint32_t          name_id;
-    StringView        name;
-    IR_EnumVariantDef* variants;
-    size_t            variants_count;
-    bool              is_pub;
-};
-
-struct IR_MethodDef {
-    uint32_t   method_id;
-    StringView name;
-    IR_Type    fn_ty;
-};
-
-typedef struct {
-    IR_ValTag tag;
-    union {
-        struct { IR_Type ty; int64_t val; } const_int;
-        struct { IR_Type ty; double val; } const_float;
-        struct { bool val; } const_bool;
-        struct { char val; } const_char;
-        struct { IR_Type ty; uint32_t id; } reg;
-        struct { IR_Type ty; uint32_t id; } global;
-    };
-} IR_Val;
-
-
-static inline IR_Val ir_const_i32(int32_t n) {
-    IR_Val v = {0};
-    v.tag = IR_Val_Const_Int;
-    v.const_int.ty.tag = IR_Type_I32;
-    v.const_int.val = n;
-    return v;
-}
-static inline IR_Val ir_const_i64(int64_t n) {
-    IR_Val v = {0};
-    v.tag = IR_Val_Const_Int;
-    v.const_int.ty.tag = IR_Type_I64;
-    v.const_int.val = n;
-    return v;
-}
-static inline IR_Val ir_reg(uint32_t id, IR_Type ty) {
-    IR_Val v = {0};
-    v.tag = IR_Val_Reg;
-    v.reg.id = id;
-    v.reg.ty = ty;
-    return v;
-}
-
-
-typedef struct IR_Inst {
-    IR_InstTag tag;
-    uint32_t dest_reg;
+struct IR_Stmt {
+    IR_StmtTag  tag;
     SourceRange origin;
     union {
-        struct { IR_Type ty; IR_Val lhs; IR_Val rhs; } bin;
-        struct { IR_Type ty; IR_Val operand; } unary;
-        struct { IR_Type ty; } alloca;
-        struct { IR_Type ty; IR_Val ptr; } load;
-        struct { IR_Val val; IR_Val ptr; } store;
-        struct { IR_Type ty; IR_Val ptr; IR_Val* indices; size_t indices_count; } gep;
-        struct { IR_Type ty; IR_Val ptr; uint32_t field_index; } field_ptr;
-        struct { IR_Type ty; IR_Val fn; IR_Val* args; size_t args_count; } call;
-        struct { IR_Type ty; IR_Val object; uint32_t method_id; IR_Val* args; size_t args_count; } method_call;
-        struct { IR_Val val; bool has_val; } ret;
-        struct { IR_Val cond; uint32_t then_bb; uint32_t else_bb; } branch;
-        struct { uint32_t target_bb; } jump;
-        struct { IR_Type ty; uint32_t* bbs; IR_Val* vals; size_t count; } phi;
-        struct { IR_Type ty; IR_Val src; } move;
-    };
-} IR_Inst;
+        struct { SourceRange name; uint32_t eid; Type ty; IR_Expr *init; VarMode mode; } var_decl;
+        struct { SourceRange name; uint32_t eid; Type ty; IR_Expr *init; VarMode mode; } let_decl;
+        struct { SourceRange name; uint32_t eid; Type ty; IR_Expr *init; } const_decl;
+        struct { SourceRange name; uint32_t eid; Type ty; } local_decl;
+        struct { IR_Expr *target; LexerTokenTag op; IR_Expr *value; } assign;
+        struct { IR_Expr *val; } ret;
+        struct { IR_Expr *cond; bool has_guard; Pattern guard_pattern; IR_Stmt *body; size_t body_count; IR_Stmt *else_body;  size_t else_body_count; } if_;
+        struct { IR_Expr *cond; IR_Stmt *body; size_t body_count; } while_;
+        struct { SourceRange var; uint32_t var_eid; Type var_ty; IR_Expr *iter; IR_Stmt *body; size_t body_count; } for_;
+        struct { IR_Expr *expr; IR_MatchArm *arms; size_t arms_count; IR_Stmt *default_body; size_t default_body_count; } match;
+        struct { IR_Expr *expr; } expr;
+        struct { uint32_t eid; Type ty; IR_Expr *val; } ssa_temp;
+    } data;
+};
+
+typedef enum {
+    IR_Def_Function,
+    IR_Def_Struct,
+    IR_Def_Enum,
+    IR_Def_Class,
+    IR_Def_Trait,
+} IR_DefTag;
 
 typedef struct {
-    uint32_t id;
-    char* label;
-    IR_Inst* insts;
-    size_t insts_count;
-    size_t insts_cap;
-} IR_BasicBlock;
-
-
+    IR_DefTag   tag;
+    SourceRange origin;
+    union {
+        struct { IR_FuncDef def; } function;
+        struct { SourceRange name; uint32_t eid; IR_FieldDef *fields; size_t fields_count; bool is_pub; } struct_;
+        struct { SourceRange name; uint32_t eid; IR_VariantDef *variants; size_t variants_count; bool is_pub; } enum_;
+        struct { SourceRange name; uint32_t eid; IR_FieldDef *fields; size_t fields_count; IR_FuncDef  *methods; size_t methods_count;                 bool is_pub; } class_;
+        struct { SourceRange name; uint32_t eid; IR_FuncDef *methods; size_t methods_count; bool is_pub; } trait_;
+        struct { SourceRange  abi; SourceRange  ffi; SourceRange  name; uint32_t eid; Type return_type; IR_Param *params; size_t       params_count; bool         is_pub; } extern_;
+    } data;
+} IR_Def;
+     
 typedef struct {
-    uint32_t name_id;
-    char* name;
-    IR_Type ret_ty;
-    IR_Type* param_tys;
-    char** param_names;
-    size_t params_count;
-    IR_BasicBlock* blocks;
-    size_t blocks_count;
-    size_t blocks_cap;
-    uint32_t next_reg;
-    bool is_pub;
-    bool is_unsafe;
-} IR_Function;
-
-typedef struct {
-    char* name;
-    IR_Function* functions;
-    size_t functions_count;
-    size_t functions_cap;
-
-    IR_StructDef* structs;
-    size_t structs_count;
-    size_t structs_cap;
-
-    IR_EnumDef* enums;
-    size_t enums_count;
-    size_t enums_cap;
-
-    IR_MethodDef* methods;
-    size_t methods_count;
-    size_t methods_cap;
-
-    struct {
-        uint32_t id;
-        char* name;
-        IR_Type ty;
-        IR_Val init;
-        bool is_pub;
-    }* globals;
-    size_t globals_count;
-    size_t globals_cap;
+    char    *name;
+    IR_Def  *defs;
+    size_t   defs_count;
+    size_t   defs_cap;
 } IR_Module;
 
-static inline uint32_t ir_next_reg(IR_Function* fn) {
-    return fn->next_reg++;
+static inline void ir_module_push(IR_Module *mod, IR_Def def) {
+    if (mod->defs_count == mod->defs_cap) {
+        mod->defs_cap = mod->defs_cap ? mod->defs_cap * 2 : 16;
+        mod->defs = realloc(mod->defs, mod->defs_cap * sizeof(IR_Def));
+    }
+    mod->defs[mod->defs_count++] = def;
 }
 
-static inline void ir_emit(IR_Function* fn, IR_Inst inst) {
-    IR_BasicBlock* bb = &fn->blocks[fn->blocks_count - 1];
-    if (bb->insts_count == bb->insts_cap) {
-        bb->insts_cap = bb->insts_cap ? bb->insts_cap * 2 : 8;
-        bb->insts = realloc(bb->insts, bb->insts_cap * sizeof(IR_Inst));
-    }
-    bb->insts[bb->insts_count++] = inst;
+static inline IR_Expr *ir_expr_alloc(IR_Expr expr) {
+    IR_Expr *p = malloc(sizeof(IR_Expr));
+    *p = expr;
+    return p;
 }
 
-static inline uint32_t ir_push_block(IR_Function* fn, char* label) {
-    if (fn->blocks_count == fn->blocks_cap) {
-        fn->blocks_cap = fn->blocks_cap ? fn->blocks_cap * 2 : 4;
-        fn->blocks = realloc(fn->blocks, fn->blocks_cap * sizeof(IR_BasicBlock));
-    }
-    IR_BasicBlock bb = {0};
-    bb.id = (uint32_t)fn->blocks_count;
-    bb.label = label;
-    fn->blocks[fn->blocks_count++] = bb;
-    return bb.id;
-}
+static inline IR_Expr ir_literal_int(int64_t v, SourceRange o) { return (IR_Expr){ .tag = IR_Expr_Literal, .ty = { .tag = Type_Int,   .data.int_t.bits   = 64 }, .origin = o, .data.literal.data.int_val   = v }; }
+static inline IR_Expr ir_literal_float(double v, SourceRange o) { return (IR_Expr){ .tag = IR_Expr_Literal, .ty = { .tag = Type_Float, .data.float_t.bits = 64 }, .origin = o, .data.literal.data.float_val = v }; }
+static inline IR_Expr ir_literal_bool(bool v, SourceRange o) { return (IR_Expr){ .tag = IR_Expr_Literal, .ty = { .tag = Type_Bool                          }, .origin = o, .data.literal.data.bool_val  = v }; }
+static inline IR_Expr ir_literal_char(char v, SourceRange o) { return (IR_Expr){ .tag = IR_Expr_Literal, .ty = { .tag = Type_Char                          }, .origin = o, .data.literal.data.char_val  = v }; }
+static inline IR_Expr ir_literal_str(SourceRange o) { return (IR_Expr){ .tag = IR_Expr_Literal, .ty = { .tag = Type_Str                           }, .origin = o, .data.literal.data.str_range  = o }; }
 
 #endif
