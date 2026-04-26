@@ -53,7 +53,6 @@ typedef struct {
     size_t body_count;
     bool is_pub;
     bool is_unsafe;
-    bool has_operation;
     LexerTokenTag operation_op;
     CallingConv   cc;
 } IR_FuncDef;
@@ -125,7 +124,7 @@ struct IR_Stmt {
         struct { SourceRange name; uint32_t eid; Type ty; } local_decl;
         struct { IR_Expr *target; LexerTokenTag op; IR_Expr *value; } assign;
         struct { IR_Expr *val; } ret;
-        struct { IR_Expr *cond; bool has_guard; Pattern guard_pattern; IR_Stmt *body; size_t body_count; IR_Stmt *else_body;  size_t else_body_count; } if_;
+        struct { IR_Expr *cond; Pattern guard_pattern; IR_Stmt *body; size_t body_count; IR_Stmt *else_body;  size_t else_body_count; } if_;
         struct { IR_Expr *cond; IR_Stmt *body; size_t body_count; } while_;
         struct { SourceRange var; uint32_t var_eid; Type var_ty; IR_Expr *iter; IR_Stmt *body; size_t body_count; } for_;
         struct { IR_Expr *expr; IR_MatchArm *arms; size_t arms_count; IR_Stmt *default_body; size_t default_body_count; } match;

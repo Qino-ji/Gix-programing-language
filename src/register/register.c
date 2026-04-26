@@ -53,6 +53,10 @@ static inline StringView type_tag_to_view(Type t) {
     }
 }
 
+static bool expr_exists(Exprs expr) {
+    return expr.data.literals.range.start != NULL;
+}
+
 
 static char* null_term_view_alloc(StringView name) {
     char* out = malloc(name.len + 1);
@@ -159,7 +163,7 @@ void populate_register(Stmts* body, size_t body_count, Register* reg, CheckerErr
 
                 Type t = (stmt->data.vars.c_type.start != stmt->data.vars.c_type.end) ? resolve_type(stmt->data.vars.c_type, reg) : infer_expr_type(&stmt->data.vars.value, reg);
 
-                if (stmt->data.vars.has_value && stmt->data.vars.c_type.start != stmt->data.vars.c_type.end) {
+                if (expr_exists(stmt->data.vars.value) && stmt->data.vars.c_type.start != stmt->data.vars.c_type.end) {
                     Type value_type = infer_expr_type(&stmt->data.vars.value, reg);
                     if (t.tag != value_type.tag) {
                         checker_err_push(errors, (CheckerErr){
@@ -200,7 +204,7 @@ void populate_register(Stmts* body, size_t body_count, Register* reg, CheckerErr
 
                 Type t = (stmt->data.lets.c_type.start != stmt->data.lets.c_type.end) ? resolve_type(stmt->data.lets.c_type, reg) : infer_expr_type(&stmt->data.lets.value, reg);
 
-                if (stmt->data.lets.has_value && stmt->data.lets.c_type.start != stmt->data.lets.c_type.end) {
+                if (expr_exists(stmt->data.lets.value) && stmt->data.lets.c_type.start != stmt->data.lets.c_type.end) {
                     Type value_type = infer_expr_type(&stmt->data.lets.value, reg);
                     if (t.tag != value_type.tag) {
                         checker_err_push(errors, (CheckerErr){
@@ -230,7 +234,7 @@ void populate_register(Stmts* body, size_t body_count, Register* reg, CheckerErr
             case Stmt_Consts: {
                 StringView key = string_range(stmt->data.consts.name);
 
-                if (!stmt->data.consts.has_value) {
+                if (!expr_exists(stmt->data.consts.value)) {
                     checker_err_push(errors, (CheckerErr){
                         .tag = Err_Tag_CVN,
                         .data.cvn = { .range = stmt->data.consts.range, .var_name = key }
@@ -414,7 +418,6 @@ bool register_class(Stmts* stmt, Register* reg, CheckerErrList* errors) {
         .data.class = {
             .methods = stmt->data.classes.methods,
             .methods_count = stmt->data.classes.methods_count,
-            .has_attached = existing != NULL,
             .attached_tag = stmt->data.classes.attached_tag,
             .attached_fields = stmt->data.classes.attached_fields,
             .attached_fields_count = stmt->data.classes.attached_fields_count,
@@ -446,7 +449,7 @@ bool register_var(Stmts* stmt, Register* reg, CheckerErrList* errors) {
         t = infer_expr_type(&stmt->data.vars.value, reg);
     }
 
-    if (stmt->data.vars.has_value && stmt->data.vars.c_type.start != stmt->data.vars.c_type.end) {
+    if (expr_exists(stmt->data.vars.value) && stmt->data.vars.c_type.start != stmt->data.vars.c_type.end) {
         Type vt = infer_expr_type(&stmt->data.vars.value, reg);
         if (t.tag != vt.tag) {
             checker_err_push(errors, (CheckerErr){
@@ -495,7 +498,7 @@ bool register_let(Stmts* stmt, Register* reg, CheckerErrList* errors) {
         t = infer_expr_type(&stmt->data.lets.value, reg);
     }
 
-    if (stmt->data.lets.has_value && stmt->data.lets.c_type.start != stmt->data.lets.c_type.end) {
+    if (expr_exists(stmt->data.lets.value) && stmt->data.lets.c_type.start != stmt->data.lets.c_type.end) {
         Type vt = infer_expr_type(&stmt->data.lets.value, reg);
         if (t.tag != vt.tag) {
             checker_err_push(errors, (CheckerErr){
@@ -526,7 +529,7 @@ bool register_const(Stmts* stmt, Register* reg, CheckerErrList* errors) {
     StringView key = string_range(stmt->data.consts.name);
     RegisterEntry* existing = register_get(reg, key);
 
-    if (!stmt->data.consts.has_value) {
+    if (!expr_exists(stmt->data.consts.value)) {
         checker_err_push(errors, (CheckerErr){
             .tag = Err_Tag_CVN,
             .data.cvn = { 
@@ -684,14 +687,8 @@ static void check_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors, Sourc
         case Stmt_Consts:  check_consts_stmt(stmt, reg, errors); break;
         case Stmt_Locals:  check_locals_stmt(stmt, reg, errors); break;
         case Stmt_Assigns: check_assign_stmt(stmt, reg, errors); break;
-
-        case Stmt_Returns:
-            check_return_stmt(stmt, reg, errors, fn_return_type);
-            break;
-
-        case Stmt_ExprStmt:
-            check_expr(&stmt->data.expr_stmt.expr, reg, errors);
-            break;
+        case Stmt_Returns: check_return_stmt(stmt, reg, errors, fn_return_type); break;
+        case Stmt_ExprStmt: check_expr(&stmt->data.expr_stmt.expr, reg, errors); break;
 
         case Stmt_Ifs: {
             check_if_stmt(stmt, reg, errors, parent_cond);

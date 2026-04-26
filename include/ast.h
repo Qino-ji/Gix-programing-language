@@ -237,7 +237,6 @@ typedef struct {
     size_t body_count;
     bool is_pub;
     bool is_unsafe;
-    bool has_operation;
     Operation operation;
     SourceRange range;
 } FunctionMethod;
@@ -361,7 +360,6 @@ typedef struct {
     Param* params;
     size_t params_count;
     SourceRange ffi_type;
-    bool has_ffi;
 } ExternFunction;
 
 typedef struct {
@@ -416,20 +414,20 @@ struct Stmts {
     union {
         struct { Exprs target; LexerTokenTag op; Exprs value; SourceRange range; } assigns;
         struct { SourceRange name; SourceRange* generic_params; size_t generic_params_count; Param* params; size_t params_count; SourceRange return_type; Stmts* body; size_t body_count; bool is_pub; bool is_unsafe; SourceRange range; } functions;
-        struct { SourceRange name; SourceRange* generic_params; size_t generic_params_count; Param* class_params; size_t class_params_count; StructParam* fields; size_t fields_count; FunctionMethod* methods; size_t methods_count; SourceRange parent; SourceRange* traits; size_t traits_count; bool is_pub; SourceRange range; bool has_attached; ClassAttachTag attached_tag; StructParam* attached_fields; size_t attached_fields_count; } classes;
+        struct { SourceRange name; SourceRange* generic_params; size_t generic_params_count; Param* class_params; size_t class_params_count; StructParam* fields; size_t fields_count; FunctionMethod* methods; size_t methods_count; SourceRange parent; SourceRange* traits; size_t traits_count; bool is_pub; SourceRange range; ClassAttachTag attached_tag; StructParam* attached_fields; size_t attached_fields_count; } classes;
         struct { SourceRange name; TraitMethod* methods; size_t methods_count; bool is_pub; SourceRange range; } traits;
         struct { SourceRange name; SourceRange* generic_params; size_t generic_params_count; StructParam* fields; size_t fields_count; bool is_pub; SourceRange range; } structs;
         struct { SourceRange name; SourceRange* generic_params; size_t generic_params_count; EnumVariant* variants; size_t variants_count; bool is_pub; SourceRange range; } enums;
         struct { Exprs expr; MatchArm* cases; size_t cases_count; Stmts* default_body; size_t default_body_count; SourceRange range; } matchs;
         struct { Stmts* body; size_t body_count; SourceRange range; } unsafes;
-        struct { Exprs cond; Stmts* body; size_t body_count; Stmts* else_body; size_t else_body_count; SourceRange range; bool has_guard; Pattern guard_pattern;} ifs;
+        struct { Exprs cond; Stmts* body; size_t body_count; Stmts* else_body; size_t else_body_count; SourceRange range; Pattern guard_pattern;} ifs;
         struct { Exprs cond; Stmts* body; size_t body_count; SourceRange range; } whiles;
         struct { SourceRange _var; Exprs iter; Stmts* body; size_t body_count; SourceRange range; } fors;
         struct { Exprs expr; SourceRange range; } returns;
-        struct { SourceRange name; SourceRange c_type; bool has_value; Exprs value; VarMode mode; SourceRange range; } vars;
-        struct { SourceRange name; SourceRange c_type; bool has_value; Exprs value; VarMode mode; SourceRange range; } lets;
+        struct { SourceRange name; SourceRange c_type; Exprs value; VarMode mode; SourceRange range; } vars;
+        struct { SourceRange name; SourceRange c_type; Exprs value; VarMode mode; SourceRange range; } lets;
         struct { SourceRange name; SourceRange c_type; bool is_pub; SourceRange range; } locals;
-        struct { SourceRange name; SourceRange c_type; bool has_value; Exprs value; bool is_pub; SourceRange range; } consts;
+        struct { SourceRange name; SourceRange c_type; Exprs value; bool is_pub; SourceRange range; } consts;
         struct { Exprs expr; } expr_stmt;
         struct { SourceRange abi; SourceRange ffi; ExternFunction* funcs; size_t funcs_count; bool is_pub; } extern_;
         struct { ExternBlock block; SourceRange ffi; SourceRange range; } externs;

@@ -473,7 +473,6 @@ static IR_Stmt lower_if(Stmts *s, Register *reg, SourceRange fn_ret) {
         .origin = s->data.ifs.range,
         .data.if_ = {
             .cond = cond,
-            .has_guard = s->data.ifs.has_guard,
             .guard_pattern = s->data.ifs.guard_pattern,
             .body = then_arr.data,
             .body_count = then_arr.len,
@@ -481,6 +480,10 @@ static IR_Stmt lower_if(Stmts *s, Register *reg, SourceRange fn_ret) {
             .else_body_count = else_arr.len,
         },
     };
+}
+
+static bool expr_exists(Exprs expr) {
+    return expr.data.literals.range.start != NULL;
 }
 
 static IR_Stmt lower_while(Stmts *s, Register *reg, SourceRange fn_ret) {
@@ -529,7 +532,7 @@ static void lower_stmt(Stmts *s, Register *reg, ARR(IR_Stmt) *out, SourceRange f
 
     switch (s->tag) {
     case Stmt_Vars: {
-        if (s->data.vars.has_value) {
+        if (expr_exists(s->data.vars.value)) {
             SourceRange name = s->data.vars.name;
             RegisterEntry *ent = reg_get(reg, name);
             IR_Expr target = (IR_Expr){
@@ -552,7 +555,7 @@ static void lower_stmt(Stmts *s, Register *reg, ARR(IR_Stmt) *out, SourceRange f
     }
 
     case Stmt_Lets: {
-        if (s->data.lets.has_value) {
+        if (expr_exists(s->data.lets.value)) {
             SourceRange name = s->data.lets.name;wi
             RegisterEntry *ent = reg_get(reg, name);
             IR_Expr target = (IR_Expr){
@@ -575,7 +578,7 @@ static void lower_stmt(Stmts *s, Register *reg, ARR(IR_Stmt) *out, SourceRange f
     }
 
     case Stmt_Consts: {
-        if (s->data.consts.has_value) {
+        if (expr_exists(s->data.consts.value)) {
             SourceRange name = s->data.consts.name;
             RegisterEntry *ent = reg_get(reg, name);
             IR_Expr target = (IR_Expr){
@@ -688,7 +691,7 @@ static IR_FuncDef lower_func_def(Stmts *s, Register *reg) {
         .body_count = body_arr.len,
         .is_pub = s->data.functions.is_pub,
         .is_unsafe = false,
-        .has_operation = false,
+        .operation_op = 0,
         .cc = CC_Default,
     };
 }
@@ -726,8 +729,7 @@ static IR_FuncDef lower_method_def(FunctionMethod *m, Register *reg) {
         .body_count = body_arr.len,
         .is_pub = true,
         .is_unsafe = false,
-        .has_operation = m->has_operation,
-        .operation_op = m->has_operation ? m->operation.op : 0,
+        .operation_op = m->operation.function.start != NULL ? m->operation.op : 0,
         .cc = CC_Default,
     };
 }

@@ -41,6 +41,10 @@ char* read_file_to_string(const char* path) {
     return buffer;
 }
 
+static bool expr_exists(Exprs expr) {
+    return expr.data.literals.range.start != NULL;
+}
+
 void print_expression(Exprs expr, int depth) {
     for (int i = 0; i < depth; i++) printf("  ");
 
@@ -256,7 +260,7 @@ void print_statement(Stmts stmt, int depth) {
             printf("VAR: %.*s\n",
                 (int)(stmt.data.vars.name.end - stmt.data.vars.name.start),
                 stmt.data.vars.name.start);
-            if (stmt.data.vars.has_value)
+            if (expr_exists(stmt.data.vars.value))
                 print_expression(stmt.data.vars.value, depth + 1);
             break;
 
@@ -264,7 +268,7 @@ void print_statement(Stmts stmt, int depth) {
             printf("LET: %.*s\n",
                 (int)(stmt.data.lets.name.end - stmt.data.lets.name.start),
                 stmt.data.lets.name.start);
-            if (stmt.data.lets.has_value)
+            if (expr_exists(stmt.data.lets.value))
                 print_expression(stmt.data.lets.value, depth + 1);
             break;
 
@@ -278,7 +282,7 @@ void print_statement(Stmts stmt, int depth) {
             printf("CONST: %.*s\n",
                 (int)(stmt.data.consts.name.end - stmt.data.consts.name.start),
                 stmt.data.consts.name.start);
-            if (stmt.data.consts.has_value)
+            if (expr_exists(stmt.data.consts.value))
                 print_expression(stmt.data.consts.value, depth + 1);
             break;
 

@@ -38,11 +38,10 @@ bool is_tautolog(Exprs* cond);
 
 
 void check_if_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors, Exprs* parent_cond) {
-    bool has_guard = stmt->data.ifs.has_guard;
     Exprs* cond = &stmt->data.ifs.cond;
     SourceRange range = stmt->data.ifs.range;
 
-    if (has_guard) {
+    if (stmt->data.ifs.guard_pattern.tag != 0) {
         check_guard_pattern(&stmt->data.ifs.guard_pattern, range, reg, errors);
 
         if (stmt->data.ifs.body_count == 0) {
@@ -1660,7 +1659,7 @@ void resolve_operations(Exprs* operations, Register* reg, CheckerErrList* errors
     FunctionMethod* matched = NULL;
     for (size_t i = 0; i < class_entry->data.class.methods_count; i++) {
         FunctionMethod* m = &class_entry->data.class.methods[i];
-        if (m->has_operation && m->operation.op == op_tag) { matched = m; break; }
+        if (m->operation.function.start != NULL && m->operation.op == op_tag) { matched = m; break; }
     }
 
     if (!matched) {

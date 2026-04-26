@@ -655,8 +655,8 @@ Stmts parser_class(Parser* self, bool is_pub) {
             m.body_count = fn.data.functions.body_count;
             m.is_pub = fn.data.functions.is_pub;
             m.is_unsafe = fn.data.functions.is_unsafe;
-            m.has_operation = true;
             m.operation = op;
+            m.operation.function = fn.data.functions.name;
             ARR_PUSH(methods, m);
         } else {
             parser_advance(self);
@@ -927,7 +927,6 @@ Stmts parser_vars(Parser* self) {
     SourceRange t = {0};
     SourceRange n = {0};
     Exprs var_value = {0};
-    bool has_value = false;
 
     if (parser_current(self).tag != Identifier) { /* Expect identifier */ } else { n = parser_current(self).range; parser_advance(self); }
 
@@ -940,7 +939,6 @@ Stmts parser_vars(Parser* self) {
     if (parser_current(self).tag != Equalss) { /* Expect equals */ } else {
         parser_advance(self);
         var_value = parser_expr(self);
-        has_value = true;
     }
 
     return (Stmts) {
@@ -949,7 +947,6 @@ Stmts parser_vars(Parser* self) {
             .name = n,
             .c_type = t,
             .value = var_value,
-            .has_value = has_value,
             .range = { .start = start.start, .end = n.end, .file_id = start.file_id },
         }
     };
@@ -962,8 +959,6 @@ Stmts parser_lets(Parser* self) {
     SourceRange t = {0};
     SourceRange n = {0};
     Exprs var_value = {0};
-    bool has_value = false;
-
     if (parser_current(self).tag == Identifier) { 
         n = parser_current(self).range; 
         parser_advance(self); 
@@ -978,7 +973,6 @@ Stmts parser_lets(Parser* self) {
     if (parser_current(self).tag == Equalss) {
         parser_advance(self);
         var_value = parser_expr(self);
-        has_value = true;
     }
 
     return (Stmts) {
@@ -987,7 +981,6 @@ Stmts parser_lets(Parser* self) {
             .name = n,
             .c_type = t,
             .value = var_value,
-            .has_value = has_value,
             .range = {
                 .start = start.start,
                 .end   = n.end,
@@ -1004,8 +997,6 @@ Stmts parser_const(Parser* self) {
     SourceRange t = {0};
     SourceRange n = {0};
     Exprs var_value = {0};
-    bool has_value = false;
-
     if (parser_current(self).tag != Identifier) { /* Expect identifier */ } else { n = parser_current(self).range; parser_advance(self); }
 
     if (parser_current(self).tag == Colons) {
@@ -1017,7 +1008,6 @@ Stmts parser_const(Parser* self) {
     if (parser_current(self).tag != Equalss) { /* Expect equals */ } else {
         parser_advance(self);
         var_value = parser_expr(self);
-        has_value = true;
     }
 
     return (Stmts) {
@@ -1026,7 +1016,6 @@ Stmts parser_const(Parser* self) {
             .name = n,
             .c_type = t,
             .value = var_value,
-            .has_value = has_value,
             .range = { 
                 .start = start.start, 
                 .end = n.end, 
@@ -1044,8 +1033,6 @@ Stmts parser_globle(Parser* self, bool is_pub, bool is_const) {
     SourceRange t = {0};
     SourceRange n = {0};
     Exprs var_value = {0};
-    bool has_value = false;
-
     if (parser_current(self).tag != Identifier) { /* Expect identifier */ } else { n = parser_current(self).range; parser_advance(self); }
 
     if (parser_current(self).tag == Colons) {
@@ -1057,7 +1044,6 @@ Stmts parser_globle(Parser* self, bool is_pub, bool is_const) {
     if (parser_current(self).tag != Equalss) { /* Expect equals */ } else {
         parser_advance(self);
         var_value = parser_expr(self);
-        has_value = true;
     }
 
     return (Stmts) {
@@ -1067,7 +1053,6 @@ Stmts parser_globle(Parser* self, bool is_pub, bool is_const) {
             .c_type = t,
             .value = var_value,
             .mode = is_pub,
-            .has_value = has_value
         }
     };
 }

@@ -46,7 +46,7 @@ typedef struct {
         struct { Type type; bool is_pub; } const_;
         struct { Type type; bool is_pub; } local;
         struct { Param* params; size_t params_count; Type return_type; bool is_pub; bool is_unsafe; } function;
-        struct { StructParam* fields; size_t fields_count; char** traits; size_t traits_count; char* parent; bool is_pub; FunctionMethod* methods; size_t methods_count; bool has_attached; ClassAttachTag attached_tag; StructParam* attached_fields; size_t  attached_fields_count; } class;
+        struct { StructParam* fields; size_t fields_count; char** traits; size_t traits_count; char* parent; bool is_pub; FunctionMethod* methods; size_t methods_count; ClassAttachTag attached_tag; StructParam* attached_fields; size_t  attached_fields_count; } class;
         struct { StructParam* fields; size_t fields_count; bool is_pub; } strct;
         struct { EnumVariant* variants; size_t variants_count; bool is_pub; } enm;
         struct { TraitMethod* methods; size_t methods_count; bool is_pub; } trait;
