@@ -11,25 +11,20 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef HAVE_STRNDUP
 static inline char* strndup(const char* s, size_t n) {
-    if (s == NULL) {
-        return NULL;
-    }
-
+    if (s == NULL) return NULL;
     size_t len = 0;
-    while (len < n && s[len] != '\0') {
-        ++len;
-    }
-
+    while (len < n && s[len] != '\0') ++len;
     char *new_str = (char *)malloc(len + 1);
-    if (new_str == NULL) {
-        return NULL;
-    }
-
+    if (new_str == NULL) return NULL;
     memcpy(new_str, s, len);
     new_str[len] = '\0';
     return new_str;
 }
+#endif
+
+
 
 typedef struct {
     const char* ptr;
