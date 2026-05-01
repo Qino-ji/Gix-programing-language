@@ -9,19 +9,15 @@ char*       read_file_to_string(const char* path);
 LexerToken* lex_all(FileManager* files, FileId file_id, const char* source, size_t* out_count);
 void        print_expression(Exprs expr, int depth);
 void        print_statement(Stmts stmt, int depth);
+void parser_set_error_list(CheckerErrList* list);
+
 
 Register register_new(Register* parent, IDCounter* counter);
-void           register_free(Register* reg);
-void           register_insert(Register* reg, StringView name, RegisterEntry entry);
+void register_free(Register* reg);
+void register_insert(Register* reg, StringView name, RegisterEntry entry);
 RegisterEntry* register_get(Register* reg, StringView name);
 
 bool register_body    (Stmts* body, size_t count, Register* reg, CheckerErrList* errors);
-bool register_stmt    (Stmts* stmt, Register* reg, CheckerErrList* errors);
-bool register_expr    (Exprs* expr, Register* reg, CheckerErrList* errors);
-bool register_function(Stmts* stmt, Register* reg, CheckerErrList* errors);
-bool register_struct  (Stmts* stmt, Register* reg, CheckerErrList* errors);
-bool register_enum    (Stmts* stmt, Register* reg, CheckerErrList* errors);
-bool register_trait   (Stmts* stmt, Register* reg, CheckerErrList* errors);
 
 char* read_file_to_string(const char* path) {
     FILE* file = fopen(path, "rb");
@@ -40,9 +36,8 @@ char* read_file_to_string(const char* path) {
     fclose(file);
     return buffer;
 }
-
 static bool expr_exists(Exprs expr) {
-    return expr.data.literals.range.start != NULL;
+    return expr.tag != 0 || expr.data.literals.range.start != NULL;
 }
 
 void print_expression(Exprs expr, int depth) {
@@ -74,27 +69,44 @@ void print_expression(Exprs expr, int depth) {
             if (expr.data.binary_ops.left)  print_expression(*expr.data.binary_ops.left,  depth + 1);
             if (expr.data.binary_ops.right) print_expression(*expr.data.binary_ops.right, depth + 1);
             break;
+        case Expr_Unary:
+            printf("UnaryOp (Tag: %d)\n", expr.data.unary.op);
+            if (expr.data.unary.operand) print_expression(*expr.data.unary.operand, depth + 1);
+            break;
         case Expr_Function:
             printf("Call: %.*s\n",
                 (int)(expr.data.function_call.name.end - expr.data.function_call.name.start),
                 expr.data.function_call.name.start);
+            for (size_t i = 0; i < expr.data.function_call.param_count; i++) {
+                for (int d = 0; d < depth + 1; d++) printf("  ");
+                printf("ARG: %.*s:\n",
+                    (int)(expr.data.function_call.param[i].name.end - expr.data.function_call.param[i].name.start),
+                    expr.data.function_call.param[i].name.start);
+                print_expression(expr.data.function_call.param[i].value, depth + 2);
+            }
             break;
-        case Expr_MethodCalls:
-            printf("MethodCall: .%.*s\n",
-                (int)(expr.data.method_calls.method.end - expr.data.method_calls.method.start),
-                expr.data.method_calls.method.start);
-            if (expr.data.method_calls.object)
-                print_expression(*expr.data.method_calls.object, depth + 1);
-            break;
+
         case Expr_Class_Calls:
-            printf("ClassCall: %.*s\n",
+            printf("ClassCall: %.*s.%.*s\n",
                 (int)(expr.data.class_calls.name.end - expr.data.class_calls.name.start),
-                expr.data.class_calls.name.start);
+                expr.data.class_calls.name.start,
+                (int)(expr.data.class_calls.function.end - expr.data.class_calls.function.start),
+                expr.data.class_calls.function.start);
+            for (size_t i = 0; i < expr.data.class_calls.param_count; i++) {
+                for (int d = 0; d < depth + 1; d++) printf("  ");
+                printf("ARG: %.*s:\n",
+                    (int)(expr.data.class_calls.param[i].name.end - expr.data.class_calls.param[i].name.start),
+                    expr.data.class_calls.param[i].name.start);
+                print_expression(expr.data.class_calls.param[i].value, depth + 2);
+            }
             break;
+
         case Expr_Struct_Calls:
-            printf("StructCall: %.*s\n",
+            printf("StructCall: %.*s.%.*s\n",
                 (int)(expr.data.struct_calls.name.end - expr.data.struct_calls.name.start),
-                expr.data.struct_calls.name.start);
+                expr.data.struct_calls.name.start,
+                (int)(expr.data.struct_calls.function.end - expr.data.struct_calls.function.start),
+                expr.data.struct_calls.function.start);
             break;
         case Expr_Enum_Calls:
             printf("EnumCall: %.*s::%.*s\n",
@@ -110,6 +122,8 @@ void print_expression(Exprs expr, int depth) {
 }
 
 void print_statement(Stmts stmt, int depth) {
+    if (stmt.tag == 0) return;
+
     for (int i = 0; i < depth; i++) printf("  ");
 
     switch (stmt.tag) {
@@ -121,9 +135,11 @@ void print_statement(Stmts stmt, int depth) {
                 stmt.data.functions.is_unsafe ? " [unsafe]" : "");
             for (size_t i = 0; i < stmt.data.functions.params_count; i++) {
                 for (int d = 0; d < depth + 1; d++) printf("  ");
-                printf("PARAM: %.*s\n",
+                printf("PARAM: %.*s: %.*s\n",
                     (int)(stmt.data.functions.params[i].name.end - stmt.data.functions.params[i].name.start),
-                    stmt.data.functions.params[i].name.start);
+                    stmt.data.functions.params[i].name.start,
+                    (int)(stmt.data.functions.params[i].c_type.end - stmt.data.functions.params[i].c_type.start),
+                    stmt.data.functions.params[i].c_type.start);
             }
             for (size_t i = 0; i < stmt.data.functions.body_count; i++)
                 print_statement(stmt.data.functions.body[i], depth + 1);
@@ -234,12 +250,24 @@ void print_statement(Stmts stmt, int depth) {
             printf("THEN\n");
             for (size_t i = 0; i < stmt.data.ifs.body_count; i++)
                 print_statement(stmt.data.ifs.body[i], depth + 2);
-            if (stmt.data.ifs.else_body_count > 0) {
-                for (int d = 0; d < depth + 1; d++) printf("  ");
-                printf("ELSE\n");
+            for (size_t i = 0; i < stmt.data.ifs.else_body_count; i++)
+                print_statement(stmt.data.ifs.else_body[i], depth);
+            break;
+
+        case Stmt_Elifs:
+            printf("ELIF\n");
+            print_expression(stmt.data.ifs.cond, depth + 1);
+            for (size_t i = 0; i < stmt.data.ifs.body_count; i++)
+                print_statement(stmt.data.ifs.body[i], depth + 1);
+            if (stmt.data.ifs.else_body_count > 0)
                 for (size_t i = 0; i < stmt.data.ifs.else_body_count; i++)
-                    print_statement(stmt.data.ifs.else_body[i], depth + 2);
-            }
+                    print_statement(stmt.data.ifs.else_body[i], depth);
+            break;
+
+        case Stmt_Elses:
+            printf("ELSE\n");
+            for (size_t i = 0; i < stmt.data.elses.body_count; i++)
+                print_statement(stmt.data.elses.body[i], depth + 1);
             break;
 
         case Stmt_Fors:
@@ -276,7 +304,10 @@ void print_statement(Stmts stmt, int depth) {
             printf("LOCAL: %.*s\n",
                 (int)(stmt.data.locals.name.end - stmt.data.locals.name.start),
                 stmt.data.locals.name.start);
+            if (expr_exists(stmt.data.vars.value))
+                print_expression(stmt.data.vars.value, depth + 1);
             break;
+
 
         case Stmt_Consts:
             printf("CONST: %.*s\n",
@@ -303,7 +334,6 @@ void print_statement(Stmts stmt, int depth) {
     }
 }
 
-
 int main(int argc, char** argv) {
     if (argc < 3) {
         printf("Usage: vix run <filename.vix>\n");
@@ -323,18 +353,20 @@ int main(int argc, char** argv) {
 
     printf("=== RUNNING: %s ===\n", filename);
 
+    CheckerErrList errors = {0};
+    parser_set_error_list(&errors);
+
     Parser parser = parser_new(lexer_new(file_id,files.slots.data[file_id].source));
     size_t stmt_count = 0;
-    Stmts  program[256];
+    StmtsArr program = {0};
 
-    int safety = 0;
-    while (parser_current(&parser).tag != EOFs && stmt_count < 256 && safety < 1000) {
-        LexerToken before = parser_current(&parser);
-        program[stmt_count++] = parser_stmt(&parser);
-        LexerToken after = parser_current(&parser);
-        if (before.tag == after.tag && before.range.start == after.range.start) parser_advance(&parser);
+    while (parser_current(&parser).tag != EOFs) {
+        size_t pos_before = (size_t)(parser_current(&parser).range.start - source);
+        Stmts s = parser_stmt(&parser);
+        size_t pos_after  = (size_t)(parser_current(&parser).range.start - source);
 
-        safety++;
+        if (s.tag != 0) ARR_PUSH(program, s);
+        if (pos_after == pos_before) parser_advance(&parser);
     }
 
     ARR_PUSH(parser.lexer.line_starts, source + strlen(source) + 1);
@@ -353,14 +385,13 @@ int main(int argc, char** argv) {
     checker_set_file_table(table);
 
     printf("\n=== AST ===\n");
-    for (size_t i = 0; i < stmt_count; i++)
-        print_statement(program[i], 0);
+    for (size_t i = 0; i < program.len; i++)
+        print_statement(program.data[i], 0);
 
     IDCounter counter = { .next_id = 1 };
     Register global_reg = register_new(NULL, &counter);
-    CheckerErrList errors = {0};
 
-    register_body(program, stmt_count, &global_reg, &errors);
+    register_body(program.data, program.len, &global_reg, &errors);
     register_free(&global_reg);
     free(errors.errors);
     free((void*)table.filenames);

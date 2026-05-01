@@ -5,9 +5,19 @@
 
 static IR_Expr lower_expr(Exprs *e, Register *reg);
 static IR_Expr *lower_expr_alloc(Exprs *e, Register *reg);
-static void lower_stmt(Stmts *s, Register *reg, ARR(IR_Stmt) *out, SourceRange fn_ret);
-static void lower_body(Stmts *body, size_t n, Register *reg, ARR(IR_Stmt) *out, SourceRange fn_ret);
-static void hoist_decls(Stmts *body, size_t n, Register *reg, ARR(IR_Stmt) *out);
+static void lower_stmt(Stmts *s, Register *reg, IR_StmtArr *out, SourceRange fn_ret);
+bool range_eq(SourceRange r, const char* str);
+bool ranges_equal(SourceRange a, SourceRange b);
+Register register_new(Register* parent, IDCounter* counter);
+void register_free(Register* reg);
+void register_insert(Register* reg, StringView name, RegisterEntry entry);
+RegisterEntry* register_get(Register* reg, StringView name);
+uint32_t register_fresh_id(Register* reg);
+void insert_param(Register* reg, Param* p, Type t);
+static void lower_stmt(Stmts *s, Register *reg, IR_StmtArr *out, SourceRange fn_ret);
+static void lower_body(Stmts *body, size_t n, Register *reg, IR_StmtArr *out, SourceRange fn_ret);
+static void hoist_decls(Stmts *body, size_t n, Register *reg, IR_StmtArr *out);
+
 
 static StringView sv_of(SourceRange r) {
     return (StringView){ r.start, (size_t)(r.end - r.start) };
@@ -35,7 +45,7 @@ static uint32_t eid_of(Register *reg, SourceRange name) {
     return e ? e->eid.id : 0;
 }
 
-static RegisterEntry *reg_get(Register *reg, SourceRange name) {
+RegisterEntry *reg_get(Register *reg, SourceRange name) {
     return register_get(reg, sv_of(name));
 }
 
@@ -56,9 +66,10 @@ static SourceRange expr_range(Exprs *e) {
 }
 
 /* Emit a fresh SSA temp and return a VarRef to it. */
-static IR_Expr emit_ssa_temp(ARR(IR_Stmt) *out, IR_Expr val, Register *reg) {
+static IR_Expr emit_ssa_temp(IR_StmtArr *out, IR_Expr val, Register *reg) {
     uint32_t id = register_fresh_id(reg);
     SourceRange origin = val.origin;
+
     ARR_PUSH(*out, ((IR_Stmt){
         .tag = IR_Stmt_SsaTemp,
         .origin = origin,
@@ -129,7 +140,8 @@ static IR_Expr lower_expr(Exprs *e, Register *reg) {
     case Expr_BinaryOps: {
         /* Enroll each operand into a fresh SSA temp so binary exprs are in
            SSA form: t0 = lhs; t1 = rhs; result = t0 op t1. */
-        ARR(IR_Stmt) side_stmts = {0};
+        IR_StmtArr side_stmts = {0};
+
 
         IR_Expr lhs_raw = lower_expr(e->data.binary_ops.left,  reg);
         IR_Expr rhs_raw = lower_expr(e->data.binary_ops.right, reg);
@@ -166,7 +178,7 @@ static IR_Expr lower_expr(Exprs *e, Register *reg) {
         SourceRange fname = e->data.function_call.name;
         RegisterEntry *ent = reg_get(reg, fname);
         Type ret = (ent && ent->tag == Reg_Function) ? ent->data.function.return_type : (Type){ .tag = Type_Void };
-        ARR(IR_Expr_Ptr) args_arr = {0};
+        IR_ExprPtrArr args_arr = {0};
 
         for (size_t i = 0; i < e->data.function_call.param_count; i++) {
             Exprs arg = {
@@ -204,7 +216,7 @@ static IR_Expr lower_expr(Exprs *e, Register *reg) {
                 }
             }
         }
-        ARR(IR_Expr_Ptr) args_arr = {0};
+        IR_ExprPtrArr args_arr = {0};
         for (size_t i = 0; i < e->data.method_calls.args_count; i++)
             ARR_PUSH(args_arr, ir_expr_alloc(lower_expr(&e->data.method_calls.args[i], reg)));
         return (IR_Expr){
@@ -250,7 +262,7 @@ static IR_Expr lower_expr(Exprs *e, Register *reg) {
 
     case Expr_Class_Calls: {
         SourceRange cname = e->data.class_calls.name;
-        ARR(IR_Expr_Ptr) args_arr = {0};
+        IR_ExprPtrArr args_arr = {0};
 
         for (size_t i = 0; i < e->data.class_calls.param_count; i++) {
             Exprs arg = {
@@ -275,7 +287,7 @@ static IR_Expr lower_expr(Exprs *e, Register *reg) {
     case Expr_Enum_Calls: {
         SourceRange ename = e->data.enum_calls.name;
         SourceRange variant = e->data.enum_calls.field;
-        ARR(IR_Expr_Ptr) args_arr = {0};
+        IR_ExprPtrArr args_arr = {0};
         for (size_t i = 0; i < e->data.enum_calls.param_count; i++) {
             Exprs arg = {
                 .tag = Expr_Identifiers,
@@ -306,14 +318,11 @@ static IR_Expr *lower_expr_alloc(Exprs *e, Register *reg) {
     return ir_expr_alloc(lower_expr(e, reg));
 }
 
-/* Build an assignment target expression, handling pointer dereference.
-   When the source assigns through a deref (*ptr = val) we emit an
-   IR_Expr_Deref node so the backend knows this is a store-through-pointer. */
 static IR_Expr lower_assign_target(Exprs *e, Register *reg) {
     if (e && e->tag == Expr_Unary && e->data.unary.op == Stars) {
         IR_Expr ptr = lower_expr(e->data.unary.operand, reg);
-        Type inner = ptr.ty.tag == Type_Ptr ? *ptr.ty.data.ptr.inner
-                                            : (Type){ .tag = Type_Void };
+        Type inner = ptr.ty.tag == Type_Ptr ? *ptr.ty.data.ptr.inner : (Type){ .tag = Type_Void };
+
         return (IR_Expr){
             .tag = IR_Expr_Deref,
             .ty = inner,
@@ -324,7 +333,7 @@ static IR_Expr lower_assign_target(Exprs *e, Register *reg) {
     return lower_expr(e, reg);
 }
 
-static void hoist_decls(Stmts *body, size_t n, Register *reg, ARR(IR_Stmt) *out) {
+static void hoist_decls(Stmts *body, size_t n, Register *reg, IR_StmtArr *out) {
     for (size_t i = 0; i < n; i++) {
         Stmts *s = &body[i];
         switch (s->tag) {
@@ -422,7 +431,7 @@ static void hoist_decls(Stmts *body, size_t n, Register *reg, ARR(IR_Stmt) *out)
     }
 }
 
-static void lower_body(Stmts *body, size_t n, Register *reg, ARR(IR_Stmt) *out, SourceRange fn_ret) {
+static void lower_body(Stmts *body, size_t n, Register *reg, IR_StmtArr *out, SourceRange fn_ret) {
     for (size_t i = 0; i < n; i++)
         lower_stmt(&body[i], reg, out, fn_ret);
 }
@@ -433,7 +442,8 @@ static IR_Stmt lower_match(Stmts *s, Register *reg, SourceRange fn_ret) {
     ARR(IR_MatchArm) arms_arr = {0};
     for (size_t i = 0; i < s->data.matchs.cases_count; i++) {
         MatchArm *src = &s->data.matchs.cases[i];
-        ARR(IR_Stmt) arm_body = {0};
+        IR_StmtArr arm_body = {0};
+
         lower_body(src->body, src->body_count, reg, &arm_body, fn_ret);
         ARR_PUSH(arms_arr, ((IR_MatchArm){
             .pattern = src->pattern,
@@ -442,9 +452,9 @@ static IR_Stmt lower_match(Stmts *s, Register *reg, SourceRange fn_ret) {
         }));
     }
 
-    ARR(IR_Stmt) def_arr = {0};
-    if (s->data.matchs.default_body_count > 0)
-        lower_body(s->data.matchs.default_body, s->data.matchs.default_body_count, reg, &def_arr, fn_ret);
+    IR_StmtArr def_arr = {0};
+
+    if (s->data.matchs.default_body_count > 0) lower_body(s->data.matchs.default_body, s->data.matchs.default_body_count, reg, &def_arr, fn_ret);
 
     return (IR_Stmt){
         .tag = IR_Stmt_Match,
@@ -462,10 +472,10 @@ static IR_Stmt lower_match(Stmts *s, Register *reg, SourceRange fn_ret) {
 static IR_Stmt lower_if(Stmts *s, Register *reg, SourceRange fn_ret) {
     IR_Expr *cond = lower_expr_alloc(&s->data.ifs.cond, reg);
 
-    ARR(IR_Stmt) then_arr = {0};
-    lower_body(s->data.ifs.body, s->data.ifs.body_count, reg, &then_arr, fn_ret);
+    IR_StmtArr then_arr = {0};
+    IR_StmtArr else_arr = {0};
 
-    ARR(IR_Stmt) else_arr = {0};
+    lower_body(s->data.ifs.body, s->data.ifs.body_count, reg, &then_arr, fn_ret);
     lower_body(s->data.ifs.else_body, s->data.ifs.else_body_count, reg, &else_arr, fn_ret);
 
     return (IR_Stmt){
@@ -489,7 +499,7 @@ static bool expr_exists(Exprs expr) {
 static IR_Stmt lower_while(Stmts *s, Register *reg, SourceRange fn_ret) {
     IR_Expr *cond = lower_expr_alloc(&s->data.whiles.cond, reg);
 
-    ARR(IR_Stmt) body_arr = {0};
+    IR_StmtArr body_arr = {0};
     lower_body(s->data.whiles.body, s->data.whiles.body_count, reg, &body_arr, fn_ret);
 
     return (IR_Stmt){
@@ -510,7 +520,7 @@ static IR_Stmt lower_for(Stmts *s, Register *reg, SourceRange fn_ret) {
 
     IR_Expr *iter = lower_expr_alloc(&s->data.fors.iter, reg);
 
-    ARR(IR_Stmt) body_arr = {0};
+    IR_StmtArr body_arr = {0};
     lower_body(s->data.fors.body, s->data.fors.body_count, reg, &body_arr, fn_ret);
 
     return (IR_Stmt){
@@ -527,7 +537,7 @@ static IR_Stmt lower_for(Stmts *s, Register *reg, SourceRange fn_ret) {
     };
 }
 
-static void lower_stmt(Stmts *s, Register *reg, ARR(IR_Stmt) *out, SourceRange fn_ret) {
+static void lower_stmt(Stmts *s, Register *reg, IR_StmtArr *out, SourceRange fn_ret) {
     if (!s) return;
 
     switch (s->tag) {
@@ -556,8 +566,9 @@ static void lower_stmt(Stmts *s, Register *reg, ARR(IR_Stmt) *out, SourceRange f
 
     case Stmt_Lets: {
         if (expr_exists(s->data.lets.value)) {
-            SourceRange name = s->data.lets.name;wi
+            SourceRange name = s->data.lets.name;
             RegisterEntry *ent = reg_get(reg, name);
+
             IR_Expr target = (IR_Expr){
                 .tag = IR_Expr_VarRef,
                 .ty = ent ? ent->type : (Type){ .tag = Type_Void },
@@ -604,9 +615,9 @@ static void lower_stmt(Stmts *s, Register *reg, ARR(IR_Stmt) *out, SourceRange f
         break;
 
     case Stmt_Assigns: {
-        /* lower_assign_target handles plain vars and pointer deref (*ptr = ...) */
         IR_Expr target = lower_assign_target(&s->data.assigns.target, reg);
         IR_Expr value  = lower_expr(&s->data.assigns.value, reg);
+
         ARR_PUSH(*out, ((IR_Stmt){
             .tag = IR_Stmt_Assign,
             .origin = s->data.assigns.range,
@@ -675,7 +686,8 @@ static IR_FuncDef lower_func_def(Stmts *s, Register *reg) {
         insert_param(&child, &params[i], t);
     }
 
-    ARR(IR_Stmt) body_arr = {0};
+
+    IR_StmtArr body_arr = {0};
 
     hoist_decls(s->data.functions.body, s->data.functions.body_count, &child, &body_arr);
     lower_body(s->data.functions.body, s->data.functions.body_count, &child, &body_arr, ret_range);
@@ -713,7 +725,7 @@ static IR_FuncDef lower_method_def(FunctionMethod *m, Register *reg) {
     for (size_t i = 0; i < pc; i++)
         insert_param(&child, &m->params[i], params_arr.data[i].ty);
 
-    ARR(IR_Stmt) body_arr = {0};
+    IR_StmtArr body_arr = {0};
 
     hoist_decls(m->body, m->body_count, &child, &body_arr);
     lower_body(m->body, m->body_count, &child, &body_arr, m->return_type);

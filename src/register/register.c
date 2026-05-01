@@ -21,6 +21,7 @@ void check_consts_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors);
 void check_locals_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors);
 void check_assign_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors);
 void check_return_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors, SourceRange fn_return_type);
+void check_extern_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors);
 void check_function_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors);
 void check_struct_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors);
 void check_enum_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors);
@@ -74,6 +75,9 @@ Register register_new(Register* parent, IDCounter* counter) {
     };
 }
 
+uint32_t register_fresh_id(Register* reg) {
+    return reg->counter->next_id++;
+}
 
 void register_free(Register* reg) {
     if (!reg->table) return;
@@ -144,6 +148,21 @@ Type resolve_type(SourceRange r, Register* reg) {
 }
 
 
+void insert_param(Register* reg, Param* p, Type t) {
+    StringView key = (StringView){
+        .ptr = p->name.start,
+        .len = (size_t)(p->name.end - p->name.start),
+    };
+    register_insert(reg, key, (RegisterEntry){
+        .tag = Reg_Var,
+        .name = NULL,
+        .type = t,
+        .decl_range = p->name,
+        .decl_name_range = p->name,
+        .data.var = { .type = t, .mode = p->mode, .is_mut = false }
+    });
+}
+
 void populate_register(Stmts* body, size_t body_count, Register* reg, CheckerErrList* errors) {
     for (size_t i = 0; i < body_count; i++) {
         Stmts* stmt = &body[i];
@@ -186,6 +205,24 @@ void populate_register(Stmts* body, size_t body_count, Register* reg, CheckerErr
                     .decl_range = stmt->data.vars.range,
                     .decl_name_range = stmt->data.vars.name,
                     .data.var = { .type = t, .mode = stmt->data.vars.mode, .is_mut = true }
+                });
+                break;
+            }
+
+            case Stmt_Functions: {
+                StringView key = string_range(stmt->data.functions.name);
+                Type ret = resolve_type(stmt->data.functions.return_type, reg);
+
+                register_insert(reg, key, (RegisterEntry){
+                    .tag = Reg_Function,
+                    .name = NULL,
+                    .type = ret,
+                    .data.function = {
+                        .return_type = ret,
+                        .params = stmt->data.functions.params,
+                        .params_count = stmt->data.functions.params_count,
+                        .is_pub = stmt->data.functions.is_pub,
+                    }
                 });
                 break;
             }
@@ -361,9 +398,8 @@ Type infer_expr_type(Exprs* expr, Register* reg) {
 
         case Expr_Class_Calls:
         case Expr_Struct_Calls: {
-            SourceRange r = (expr->tag == Expr_Class_Calls)
-                ? expr->data.class_calls.name
-                : expr->data.struct_calls.name;
+            SourceRange r = (expr->tag == Expr_Class_Calls) ? expr->data.class_calls.name : expr->data.struct_calls.name;
+
             return (Type){ .tag = Type_Custom, .data.custom.name = r };
         }
 
@@ -551,11 +587,9 @@ bool register_const(Stmts* stmt, Register* reg, CheckerErrList* errors) {
         return false;
     }
 
-    Type t = (stmt->data.consts.c_type.start != stmt->data.consts.c_type.end) 
-        ? resolve_type(stmt->data.consts.c_type, reg) 
-        : infer_expr_type(&stmt->data.consts.value, reg);
+    Type t = (stmt->data.consts.c_type.start != stmt->data.consts.c_type.end)  ? resolve_type(stmt->data.consts.c_type, reg)  : infer_expr_type(&stmt->data.consts.value, reg);
 
-      register_insert(reg, key, (RegisterEntry){
+        register_insert(reg, key, (RegisterEntry){
           .tag = Reg_Const,
           .name = NULL,
           .type = t,
