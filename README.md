@@ -5,7 +5,7 @@ Warning: This language is still on Alpha version. Full pre beta on 6/1/26. Wait 
 
 For more informations. 
 You can ofcource join our discrod community: https://discord.gg/CAemjRc4ya
-Check out our website too: https://vixlanguage.github.io
+Check out our website too: https://vixlanguage.github.io/home
 
 ## > Why Vix?
 
