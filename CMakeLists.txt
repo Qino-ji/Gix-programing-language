@@ -32,7 +32,39 @@ if(VIX_BUILD_CORE)
     list(LENGTH VIX_SOURCES VIX_SOURCE_COUNT)
     message(STATUS "VIX_BUILD_CORE=ON: building ${VIX_SOURCE_COUNT} source files from src/")
 
+    # ── flatcc ──────────────────────────────────────────────────────────────
+    set(FLATCC_INCLUDE_DIR "C:/Users/Client/Desktop/vcpkg/installed/x64-windows/include")
+    set(FLATCC_LIB         "C:/Users/Client/Desktop/vcpkg/installed/x64-windows/lib/flatccrt.lib")
+    set(FLATCC_LIB_DEBUG   "C:/Users/Client/Desktop/vcpkg/installed/x64-windows/debug/lib/flatccrt_d.lib")
+
+    # Generate flatbuffers headers from project_pack.fbs into src/gen/
+    find_program(FLATCC_EXE flatcc HINTS "C:/Users/Client/Desktop/flatcc-src/bin/Release" REQUIRED)
+    set(FBS_FILE   "${CMAKE_CURRENT_SOURCE_DIR}/src/project_pack.fbs")
+    set(GEN_DIR    "${CMAKE_CURRENT_SOURCE_DIR}/src/gen")
+
+    file(MAKE_DIRECTORY "${GEN_DIR}")
+
+    add_custom_command(
+        OUTPUT
+            "${GEN_DIR}/project_pack_reader.h"
+            "${GEN_DIR}/project_pack_builder.h"
+            "${GEN_DIR}/project_pack_verifier.h"
+        COMMAND "${FLATCC_EXE}" --reader --builder --verifier -o "${GEN_DIR}" "${FBS_FILE}"
+        DEPENDS "${FBS_FILE}"
+        COMMENT "Generating flatbuffers headers from project_pack.fbs"
+    )
+
+    add_custom_target(vix_fbs_gen DEPENDS
+        "${GEN_DIR}/project_pack_reader.h"
+        "${GEN_DIR}/project_pack_builder.h"
+        "${GEN_DIR}/project_pack_verifier.h"
+    )
+    # ────────────────────────────────────────────────────────────────────────
+
     add_library(vix_core STATIC ${VIX_SOURCES})
+
+    # Make sure headers are generated before vix_core tries to compile pack.c
+    add_dependencies(vix_core vix_fbs_gen)
 
     add_executable(vix ${VIX_MAIN_SOURCE})
     target_link_libraries(vix PRIVATE vix_core)
@@ -41,12 +73,21 @@ if(VIX_BUILD_CORE)
         PUBLIC
             "${CMAKE_CURRENT_SOURCE_DIR}/include"
             "${CMAKE_CURRENT_SOURCE_DIR}/src"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/gen"   # for generated headers
     )
 
     target_include_directories(vix
         PRIVATE
             "${CMAKE_CURRENT_SOURCE_DIR}/include"
             "${CMAKE_CURRENT_SOURCE_DIR}/src"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/gen"
+    )
+
+    # Link flatcc runtime into vix_core (pack.c needs flatccrt)
+    target_include_directories(vix_core PUBLIC "${FLATCC_INCLUDE_DIR}")
+    target_link_libraries(vix_core PUBLIC
+        "$<$<CONFIG:Debug>:${FLATCC_LIB_DEBUG}>"
+        "$<$<NOT:$<CONFIG:Debug>>:${FLATCC_LIB}>"
     )
 
     if(MSVC)

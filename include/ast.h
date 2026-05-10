@@ -462,7 +462,7 @@ typedef struct { ExternFunction* data; size_t len; size_t cap; } ExternFuncArr;
 
 struct Stmts {
     StmtsTag tag;
-    union {
+    union { 
         struct { Exprs target; LexerTokenTag op; Exprs value; SourceRange range; } assigns;
         struct { SourceRange name; SourceRange* generic_params; size_t generic_params_count; Param* params; size_t params_count; SourceRange return_type; TypeTag return_type_tag; int return_type_bits; Stmts* body; size_t body_count; bool is_pub; bool is_unsafe; SourceRange range; } functions;
         struct { SourceRange name; SourceRange* generic_params; size_t generic_params_count; Param* class_params; size_t class_params_count; StructParam* fields; size_t fields_count; FunctionMethod* methods; size_t methods_count; SourceRange parent; SourceRange* traits; size_t traits_count; bool is_pub; SourceRange range; ClassAttachTag attached_tag; StructParam* attached_fields; size_t attached_fields_count; } classes;

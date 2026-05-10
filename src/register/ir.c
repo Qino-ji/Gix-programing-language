@@ -65,7 +65,6 @@ static SourceRange expr_range(Exprs *e) {
     }
 }
 
-/* Emit a fresh SSA temp and return a VarRef to it. */
 static IR_Expr emit_ssa_temp(IR_StmtArr *out, IR_Expr val, Register *reg) {
     uint32_t id = register_fresh_id(reg);
     SourceRange origin = val.origin;
@@ -138,29 +137,25 @@ static IR_Expr lower_expr(Exprs *e, Register *reg) {
     }
 
     case Expr_BinaryOps: {
-        /* Enroll each operand into a fresh SSA temp so binary exprs are in
-           SSA form: t0 = lhs; t1 = rhs; result = t0 op t1. */
         IR_StmtArr side_stmts = {0};
-
-
         IR_Expr lhs_raw = lower_expr(e->data.binary_ops.left,  reg);
         IR_Expr rhs_raw = lower_expr(e->data.binary_ops.right, reg);
         IR_Expr lhs = emit_ssa_temp(&side_stmts, lhs_raw, reg);
         IR_Expr rhs = emit_ssa_temp(&side_stmts, rhs_raw, reg);
-
-        /* side_stmts are intentionally discarded here; callers that need them
-           (lower_stmt) call lower_expr_into which flushes them first. */
         (void)side_stmts;
 
         LexerTokenTag op = e->data.binary_ops.op;
         Type ty = lhs.ty;
         switch (op) {
-        case DoubleEqualss: case NotEqualss: case Lesses:
-        case Greaters: case LessEqualss: case GreaterEqualss:
-        case Ands: case Ors:
-            ty = (Type){ .tag = Type_Bool };
-            break;
-        default: break;
+            case DoubleEqualss: 
+            case NotEqualss: 
+            case Lesses:
+            case Greaters: 
+            case LessEqualss: 
+            case GreaterEqualss:
+            case Ands: 
+            case Ors: ty = (Type){ .tag = Type_Bool }; break;
+            default: break;
         }
         return (IR_Expr){
             .tag = IR_Expr_BinOp,
