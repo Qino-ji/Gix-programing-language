@@ -1,7 +1,0 @@
-import melova
-
-class Terminal
-    func new(self, output)
-    	
-    end
-end
