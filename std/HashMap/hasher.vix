@@ -1,0 +1,204 @@
+const ROT: uint32 = 23
+public const MULTIPLE: uint64 = 6364136223846793005
+
+public const PI_U64X4: uint64[4] = [
+    0x243f6a8885a308d3,
+    0x13198a2e03707344,
+    0xa4093822299f31d0,
+    0x082efa98ec4e6c89
+]
+
+public const PI_U128X2: uint128[2] = [
+    0x13198a2e03707344243f6a8885a308d3,
+    0x082efa98ec4e6c89a4093822299f31d0
+]
+
+public const PI2: uint64[4] = [
+    0x452821e638d01377,
+    0xbe5466cf34e90c6c,
+    0xc0ac29b7c97c50dd,
+    0x3f84d5b5b5470917
+]
+
+public func u128_to_u64x2(val: uint128): uint64[2]
+    return [val as uint64, (val >> 64) as uint64]
+end
+
+public func u64x2_to_u128(val: uint64[2]): uint128
+    return (val.data[0] as uint128) | ((val.data[1] as uint128) << 64)
+end
+
+public func folded_multiply(s: uint64, by: uint64): uint64
+    let b1 = s.wrapping_mul(swap_bytes[uint64](by))
+    let b2 = swap_bytes[uint64](s).wrapping_mul(!by)
+    return b1 ^ swap_bytes[uint64](b2)
+end
+
+public func read_small(data: uint8[]): uint64[2]
+    if data.len >= 2 then
+        if data.len >= 4 then
+            return [read_u32(data) as uint64, read_last_u32(data) as uint64]
+        else
+            return [read_u16(data) as uint64, data.ptr[data.len - 1] as uint64]
+        end
+    else
+        if data.len > 0 then
+            return [data.ptr[0] as uint64, data.ptr[0] as uint64]
+        else
+            return [0, 0]
+        end
+    end
+end
+
+
+import core
+
+public func get_fixed_seeds(): uint64[4][2]
+    return [PI_U64X4, PI2]
+end
+
+
+
+public struct AHasher:
+    buffer = uint64
+    pad = uint64
+    extra_keys = uint64[2]
+end
+
+class AHasher():
+    public public func from_random_state(rand_state: RandomState): AHasher
+        return AHasher {
+            buffer = rand_state.k1,
+            pad = rand_state.k0,
+            extra_keys = [rand_state.k2, rand_state.k3]
+        }
+    end
+
+    public public func clone(&self): AHasher
+        return AHasher {
+            buffer = self.buffer,
+            pad = self.pad,
+            extra_keys = self.extra_keys
+        }
+    end
+
+    public func update(&var self, new_data: uint64)
+        self.buffer = folded_multiply(new_data ^ self.buffer, MULTIPLE)
+        return
+    end
+
+    public func large_update(&var self, new_data: uint128)
+        let block = u128_to_u64x2(new_data)
+        let combined = folded_multiply(
+            block[0] ^ self.extra_keys[0],
+            block[1] ^ self.extra_keys[1]
+        )
+        self.buffer = (self.buffer.wrapping_add(self.pad) ^ combined).rotate_left[uint64](ROT)
+        return
+    end
+end
+
+
+class Hasher for AHasher:
+    public func finish(&self): uint64
+        let rot = (self.buffer & 63) as uint32
+        return folded_multiply(self.buffer, self.pad).rotate_left[uint64](rot)
+    end
+
+    public func write_u8(&var self, i: uint8)
+        return self.update(i as uint64)
+    end
+
+    public func write_u16(&var self, i: uint16)
+        return self.update(i as uint64)
+    end
+
+    public func write_u32(&var self, i: uint32)
+        return self.update(i as uint64)
+    end
+
+    public func write_u64(&var self, i: uint64)
+        return self.update(i)
+    end
+
+    public func write_u128(&var self, i: uint128)
+        return self.large_update(i)
+    end
+
+    public func write_usize(&var self, i: usize)
+        return self.write_u64(i as uint64)
+    end
+
+    public func write_i8(&var self, i: int8)
+        return self.update(i as uint64)
+    end
+
+    public func write_i16(&var self, i: int16)
+        return self.update(i as uint64)
+    end
+
+    public func write_i32(&var self, i: int32)
+        return self.update(i as uint64)
+    end
+
+    public func write_i64(&var self, i: int64)
+        return self.update(i as uint64)
+    end
+
+    public func write_i128(&var self, i: int128)
+        return self.large_update(i as uint128)
+    end
+
+    public func write_isize(&var self, i: isize)
+        return self.write_u64(i as uint64)
+    end
+
+    public func write_str(&var self, s: str)
+        unsafe:
+            let data: uint8[] = transmute[str, uint8[]](s)
+
+            return self.write(data)
+        end
+    end
+
+    public func write_string(&var self, s: String)
+        unsafe:
+            let bytes: uint8[] = transmute[String, uint8[]](s)
+
+            return self.write(bytes)
+        end
+    end
+
+    public func write(&var self, input: uint8[])
+        var data = input
+        let length = data.len as uint64
+        self.buffer = self.buffer.wrapping_add(length).wrapping_mul(MULTIPLE)
+
+        if data.len > 8 then
+            if data.len > 16 then
+                let tail = read_last_u128(data)
+                self.large_update(tail)
+                while data.len > 16 do
+                    let block = read_u128(data)
+                    self.large_update(block)
+                    data = data[16..data.len]
+                end
+            else
+                self.large_update(u64x2_to_u128([read_u64(data), read_last_u64(data)]))
+            end
+        else
+            let value = read_small(data)
+            self.large_update(u64x2_to_u128(value))
+        end
+
+        return
+    end
+end
+
+public func mix(hasher: AHasher, l: uint64, r: uint64): uint64
+    var h = hasher.clone()
+    h.write_u64(l)
+    h.write_u64(r)
+    return h.finish()
+end
+

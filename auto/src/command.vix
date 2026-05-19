@@ -1,0 +1,44 @@
+import command from std
+import msg
+import * from terminal
+import * from io
+
+command.run(func(file)
+    let cmd = command.call("config get --5")
+    let build = command.call("config get --build")
+
+    let terminal = Terminal {
+        name = file.name()
+        path = file.path(),
+        modifed = file.modifed_date(),
+        data = build
+    }
+
+    if command.call("config get --4") == true then // if no qustions just run
+        terminal.new(command.call(format("vix {} --{}"), cmd, file, build.map(lambda i: format("-{}"), i)))
+    end
+
+    let msg = msg.new(
+        title = "vix compiler",
+        image = command.call(format("{}/image/vix.png", command.call("config get --2"))),
+        delago = "if you want to run the file hit: run, if no hit cancle\n warning: this file may contain malware, if you sure and trust the source hit run",
+        options = ["cancle", "run"]
+    )
+
+    match msg
+        case 1
+
+        let options = msg.new(
+            title = "vix compiler",
+            image = command.call(format("{}/image/vix.png", command.call("config get --2"))),
+            delago = "are you sure running this file? It might contain malware, if you trust the source hit yes to run\n this the last warning",
+            options = ["no", "yes"],
+            icon = 2
+        )
+
+        match options
+            case 1 terminal.new(command.call(format("vix {} --{}"), cmd, file, build.map(lambda i: format("-{}"), i)))
+            case 0 return
+        case 0 return
+    end
+end)

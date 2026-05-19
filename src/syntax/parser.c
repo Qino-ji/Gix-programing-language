@@ -494,6 +494,36 @@ Exprs parser_enums_call(Parser* self, SourceRange en) {
 }
 
 Type parser_type(Parser* self) {
+    if (parser_current(self).tag == Atomics) {
+        parser_advance(self); // consume 'atomic'
+
+        if (!self->atomic_imported) {
+            parse_error(self, ParseErr_UnexpectedToken, "atomic[T] requires 'import Atomic from std'", Atomics);
+            parser_advance(self);
+            
+            return (Type){ .tag = Type_Void };
+        }
+
+        if (parser_current(self).tag != LeftBrackets) {
+            parse_error(self, ParseErr_ExpectedToken, "expected '[' after 'atomic'", LeftBrackets);
+            return (Type){ .tag = Type_Void };
+        }
+
+        Type* inner = malloc(sizeof(Type));
+        *inner = parser_type(self);
+
+        if (parser_current(self).tag != RightBrackets) {
+            parse_error(self, ParseErr_ExpectedToken, "expected ']' to close 'atomic[...]'", RightBrackets);
+        } else {
+            parser_advance(self);
+        }
+
+        return (Type){
+            .tag = Type_Atomic,
+            .data.atomic.inner = inner
+        };
+    }
+
     if (parser_current(self).tag == Stars) {
         parser_advance(self);
 
@@ -1783,6 +1813,157 @@ Stmts parser_elif(Parser* self) {
     };
 }
 
+Stmts parser_import(Parser* self) {
+    SourceRange range = parser_current(self).range;
+    parser_advance(self);
+
+    if (parser_current(self).tag == Stars) {
+        parser_advance(self);
+
+        if (parser_current(self).tag != Froms) {
+            parse_error(self, ParseErr_ExpectedToken, "expected 'from' after 'import *'", Froms);
+        }
+        parser_advance(self);
+
+        SourceRange path = {0};
+        if (parser_current(self).tag == Strings) {
+            path = parser_current(self).range;
+            parser_advance(self);
+        } else {
+            parse_error(self, ParseErr_ExpectedToken, "expected module path string after 'from'", Strings);
+        }
+
+        return (Stmts){
+            .tag = Stmt_Imports,
+            .data.imports = {
+                .kind = Import_Star,
+                .path = path,
+                .is_star = true,
+                .range = range,
+            }
+        };
+    }
+
+    if (parser_current(self).tag == Strings) {
+        SourceRange path = parser_current(self).range;
+        parser_advance(self);
+        return (Stmts){
+            .tag = Stmt_Imports,
+            .data.imports = {
+                .kind = Import_Plain,
+                .path = path,
+                .range = range,
+            }
+        };
+    }
+
+    SourceRange name = {0};
+    if (parser_current(self).tag == Identifier) {
+        name = parser_current(self).range;
+        parser_advance(self);
+    } else {
+        parse_error(self, ParseErr_ExpectedToken, "expected name or '*' after 'import'", Identifier);
+    }
+
+    SourceRange path = {0};
+    if (parser_current(self).tag == Froms) {
+        parser_advance(self);
+        if (parser_current(self).tag == Strings) {
+            path = parser_current(self).range;
+            parser_advance(self);
+        } else {
+            parse_error(self, ParseErr_ExpectedToken, "expected module path after 'from'", Strings);
+        }
+    }
+
+    if (range_eq(name, "Atomic") && range_eq(path, "std")) {
+        self->atomic_imported = true;
+    }
+
+    return (Stmts){
+        .tag = Stmt_Imports,
+        .data.imports = {
+            .kind = Import_Named,
+            .name = name,
+            .path = path,
+            .range = range,
+        }
+    };
+}
+
+Stmts parser_from_import(Parser* self) {
+    SourceRange range = parser_current(self).range;
+    parser_advance(self);
+
+    SourceRange path = {0};
+    if (parser_current(self).tag == Strings) {
+        path = parser_current(self).range;
+        parser_advance(self);
+    } else {
+        parse_error(self, ParseErr_ExpectedToken, "expected module path after 'from'", Strings);
+    }
+
+    if (parser_current(self).tag != Imports) {
+        parse_error(self, ParseErr_ExpectedToken, "expected 'import' after module path", Imports);
+    }
+    parser_advance(self);
+
+    SourceRange name = {0};
+    bool is_star = false;
+
+    if (parser_current(self).tag == Stars) {
+        is_star = true;
+        parser_advance(self);
+    } else if (parser_current(self).tag == Identifier) {
+        name = parser_current(self).range;
+        parser_advance(self);
+    } else {
+        parse_error(self, ParseErr_ExpectedToken, "expected name or '*' after 'import'", Identifier);
+    }
+
+    return (Stmts){
+        .tag = Stmt_Imports,
+        .data.imports = {
+            .kind = is_star ? Import_Star : Import_From,
+            .name = name,
+            .path = path,
+            .is_star = is_star,
+            .range = range,
+        }
+    };
+}
+
+Stmts parser_module(Parser* self, bool is_pub) {
+    SourceRange range = parser_current(self).range;
+    parser_advance(self);
+
+    SourceRange name = {0};
+    if (parser_current(self).tag == Identifier) {
+        name = parser_current(self).range;
+        parser_advance(self);
+    } else {
+        parse_error(self, ParseErr_ExpectedToken, "expected module name", Identifier);
+    }
+
+    StmtsArr body = {0};
+    while (parser_current(self).tag != Ends && parser_current(self).tag != EOFs) {
+        Stmts s = parser_stmt(self);
+        if (s.tag != 0) ARR_PUSH(body, s);
+    }
+    if (!parser_expect(self, Ends)) parser_sync(self);
+
+    return (Stmts){
+        .tag = Stmt_Modules,
+        .data.modules = {
+            .name = name,
+            .body = body.data,
+            .body_count = body.len,
+            .is_pub = is_pub,
+            .range = range,
+        }
+    };
+}
+
 Stmts parser_else(Parser* self) {
     parser_advance(self);
 
@@ -1804,6 +1985,90 @@ Stmts parser_else(Parser* self) {
     };
 }
 
+static OrderingTag parser_ordering(Parser* self) {
+    if (parser_current(self).tag != Orderings) {
+        parse_error(self, ParseErr_ExpectedToken, "expected Ordering (Relaxed, Acquire, Release, AcqRel, SeqCst)", Orderings);
+        return Ordering_SeqCst;
+    }
+
+    OrderingTag ord = (OrderingTag)parser_current(self).data.value_int;
+    parser_advance(self);
+    return ord;
+}
+
+Stmts parser_atomic_op(Parser* self, SourceRange target, AtomicOpTag op) {
+    SourceRange range = parser_current(self).range;
+
+    if (parser_current(self).tag != LeftParens) {
+        parse_error(self, ParseErr_ExpectedToken,
+            "expected '(' after atomic operation", LeftParens);
+        return (Stmts){0};
+    }
+    parser_advance(self);
+
+    Exprs args[3] = {0};
+    size_t args_count = 0;
+    OrderingTag ordering  = Ordering_SeqCst;
+    OrderingTag ordering2 = Ordering_Relaxed;
+
+    switch (op) {
+        case AtomicOp_Load: {
+            ordering = parser_ordering(self);
+            break;
+        }
+
+        case AtomicOp_Store:
+        case AtomicOp_Swap:
+        case AtomicOp_FetchAdd:
+        case AtomicOp_FetchSub:
+        case AtomicOp_FetchAnd:
+        case AtomicOp_FetchOr:
+        case AtomicOp_FetchXor:
+        case AtomicOp_FetchNand:
+        case AtomicOp_FetchMax:
+        case AtomicOp_FetchMin: {
+            args[0] = parser_expr(self);
+            args_count = 1;
+            if (parser_current(self).tag == Commas) parser_advance(self);
+            ordering = parser_ordering(self);
+            break;
+        }
+
+        case AtomicOp_CompareExchange: {
+            args[0] = parser_expr(self);   // expected
+            args_count++;
+            if (parser_current(self).tag == Commas) parser_advance(self);
+            args[1] = parser_expr(self);
+            args_count++;
+
+            if (parser_current(self).tag == Commas) parser_advance(self); ordering  = parser_ordering(self);
+            if (parser_current(self).tag == Commas) parser_advance(self); ordering2 = parser_ordering(self);
+            break;
+        }
+    }
+
+    if (parser_current(self).tag != RightParens) {
+        parse_error(self, ParseErr_ExpectedToken,
+            "expected ')' to close atomic operation", RightParens);
+    } else {
+        parser_advance(self);
+    }
+
+    return (Stmts){
+        .tag = Stmt_AtomicOp,
+        .data.atomic_op = {
+            .target = target,
+            .op = op,
+            .args = { args[0], args[1], args[2] },
+            .args_count = args_count,
+            .ordering   = ordering,
+            .ordering2  = ordering2,
+            .range      = range,
+        }
+    };
+}
+
+
 Stmts parser_stmt(Parser* self) {
     LexerToken tok = parser_current(self);
 
@@ -1816,6 +2081,7 @@ Stmts parser_stmt(Parser* self) {
                 case Structs:   return parser_structer(self, true, true);
                 case Enums:     return parser_enums(self, true, true);
                 case Traits:    return parser_traits(self, true, true);
+                case Modules:   return parser_module(self, true);
                 default: {
                     parse_error(self, ParseErr_UnexpectedToken,
                         "expected 'fn', 'struct', 'enum', or 'trait' after 'pub unsafe'",
@@ -1870,6 +2136,9 @@ Stmts parser_stmt(Parser* self) {
         }
     } else {
         switch (tok.tag) {
+            case Imports: return parser_import(self);
+            case Froms:   return parser_from_import(self);
+            case Modules: return parser_module(self, false);
             case Functions: return parser_functions(self, false, false, false);
             case Classes:   return parser_class(self, false);
             case Structs:   return parser_structer(self, false, false);
@@ -1909,6 +2178,13 @@ Stmts parser_stmt(Parser* self) {
                         method = parser_current(self).range;
                         parser_advance(self);
                     }
+
+                    if (parser_current(self).tag == Orderings) {
+                        AtomicOpTag op = (AtomicOpTag)parser_current(self).data.value_int;
+                        parser_advance(self); // consume op name
+                        return parser_atomic_op(self, name, op);
+                    }
+
                     ParamArr args = {0};
                     if (parser_current(self).tag == LeftParens) {
                         parser_advance(self);

@@ -1,0 +1,108 @@
+
+public trait Hash:
+    public func hash(&self, hasher: &var AHasher)
+end
+
+// --- Char types ---
+
+class Hash for str:
+    public func hash(&self, hasher: &var AHasher)
+        hasher.write_str(self)
+    end
+end
+
+class Hash for char:
+    public func hash(&self, hasher: &var AHasher)
+        hasher.write_u32(self as uint32)
+    end
+end
+
+class Hash for String:
+    public func hash(&self, hasher: &var AHasher)
+        hasher.write_string(self)
+    end
+end
+
+class Hash for int8:
+    public func hash(&self, hasher: &var AHasher)
+        hasher.write_i8(self)
+    end
+end
+
+class Hash for int16:
+    public func hash(&self, hasher: &var AHasher)
+        hasher.write_i16(self)
+    end
+end
+
+class Hash for int32:
+    public func hash(&self, hasher: &var AHasher)
+        hasher.write_i32(self)
+    end
+end
+
+class Hash for int64:
+    public func hash(&self, hasher: &var AHasher)
+        hasher.write_i64(self)
+    end
+end
+
+class Hash for int128:
+    public func hash(&self, hasher: &var AHasher)
+        hasher.write_i128(self)
+    end
+end
+
+// --- Unsigned integers ---
+
+class Hash for uint8:
+    public func hash(&self, hasher: &var AHasher)
+        hasher.write_u8(self)
+    end
+end
+
+class Hash for uint16:
+    public func hash(&self, hasher: &var AHasher)
+        hasher.write_u16(self)
+    end
+end
+
+class Hash for uint32:
+    public func hash(&self, hasher: &var AHasher)
+        hasher.write_u32(self)
+    end
+end
+
+class Hash for uint64:
+    public func hash(&self, hasher: &var AHasher)
+        hasher.write_u64(self)
+    end
+end
+
+class Hash for uint128:
+    public func hash(&self, hasher: &var AHasher)
+        hasher.write_u128(self)
+    end
+end
+
+// --- Floats (reinterpret bits as integer, NaN-unsafe but standard practice) ---
+class Hash for float16:
+    public func hash(&self, hasher: &var AHasher)
+        var bits = transmute[float16, uint16](*self)
+        hasher.write_u16(bits)
+    end
+end
+
+class Hash for float32:
+    public func hash(&self, hasher: &var AHasher)
+        var bits = transmute[float32, uint32](*self)
+        hasher.write_u32(bits)
+    end
+end
+
+class Hash for float64:
+    public func hash(&self, hasher: &var AHasher)
+        var bits = transmute[float64, uint64](*self)
+        hasher.write_u64(bits)
+    end
+end

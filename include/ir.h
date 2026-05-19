@@ -112,6 +112,7 @@ typedef enum {
     IR_Stmt_Expr,
     IR_Stmt_SsaTemp,
     IR_Def_Extern,
+    IR_Stmt_AtomicOp,
 } IR_StmtTag;
 
 struct IR_Stmt {
@@ -130,6 +131,7 @@ struct IR_Stmt {
         struct { IR_Expr *expr; IR_MatchArm *arms; size_t arms_count; IR_Stmt *default_body; size_t default_body_count; } match;
         struct { IR_Expr *expr; } expr;
         struct { uint32_t eid; Type ty; IR_Expr *val; } ssa_temp;
+        struct { SourceRange  target; uint32_t target_eid; AtomicOpTag op; IR_Expr *args[3]; size_t args_count; OrderingTag  ordering; OrderingTag  ordering2; } atomic_op;
     } data;
 };
 

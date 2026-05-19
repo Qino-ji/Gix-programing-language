@@ -1,0 +1,59 @@
+public module Alloc
+	trait Alloc
+		func alloc_mem(size: int): ptr[void]
+		func realloc_mem(target: (int, str), ptr: ptr[void], new_size: int): ptr[void]    
+		func dealloc_mem(ptr: ptr[void]): void
+	end
+
+	public func alloc_mem(size: int): ptr[void]
+		if size == 0 then
+			return malloc(1 as uint64)
+		end
+
+		var ptr: ptr[void] = malloc(size)
+
+		if ptr == 0 then
+			exit(1)
+		end
+
+		return ptr
+	end
+
+	public func realloc_mem(target: (int, str), ptr: ptr[void], new_size: int): ptr[void]
+		if new_size == 0 then
+			exit(1)
+		end
+
+		if is_null(ptr) then
+			var new_ptr: ptr[void] = alloc_mem(new_size)
+
+			if is_null(new_ptr) then
+				exit(1)
+			end
+
+			return new_ptr
+		end
+
+		var new_ptr: ptr[void] = realloc(ptr, new_size as uint64)
+
+		if is_null(new_ptr) then
+			exit(1)
+		end
+
+		return new_ptr
+	end
+
+	public func dealloc_mem(ptr: ptr[void]): void
+		if is_null(ptr) then
+			return
+		end
+
+		free(ptr)
+	end
+end
+
+public module Free
+	public unsafe func free_mem(ptr: ptr[void]): void
+		free(ptr)
+	end
+end

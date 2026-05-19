@@ -6,6 +6,7 @@
 
 typedef struct Parser {
     Lexer lexer;
+    bool atomic_imported;
 } Parser;
 
 static inline Parser parser_new(Lexer lex) { return (Parser){.lexer = lex}; }

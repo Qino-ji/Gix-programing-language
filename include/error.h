@@ -1,3 +1,6 @@
+#ifndef ERROR_H
+#define ERROR_H
+
 #include "ast.h"
 #include "file_manager.h"
 
@@ -302,3 +305,5 @@ typedef struct {
 
 void checker_err_push(CheckerErrList* list, CheckerErr err);
 void checker_set_file_table(FileTable table);
+
+#endif

@@ -1,0 +1,62 @@
+import alloc from std
+
+const MAX_REFCOUNT = isize::MAX as usize
+
+struct ArcInner[T: UnSized]
+    strong: Atmoic[usize]
+    weak: Atomic[usize]
+    data: T
+end
+
+struct Arc[T: UnSized]
+    ptr: NonNull[ArcInner[T]]
+end
+
+class Arc[T: UnSized]
+    func new(data:T): Arc[T] 
+        let ptr = alloc_uninit[ArcInner]()
+
+        ptr.strong = Atomic.new(1)
+        ptr.weak = Atomic.new(1)
+        ptr.data = data
+         
+        return Arc { ptr }
+    end
+
+    func clone(self): Arc[T]
+        let old_size = self.inner().strong.fetch_add(1, Relaxed)
+
+        if old_size > MAX_REFCOUNT then
+            panic()
+        end
+
+        self.from_inner(self.ptr)
+    end
+  
+    func make_weak(&self): Weak[T] 
+        self.inner().weak.fetch_add(1, Relaxed)
+
+        return Weak{ptr:self.ptr}
+    end   
+
+    func from_inner(ptr: NonNull[ArcInner[T]])
+        return Self {
+            ptr
+        }
+    end
+
+    func inner(self): var ArcInner[T]
+        unsafe var *self.ptr end
+    end
+
+    func drop(var self)
+        let old_size = self.inner().strong.fetch_sub(1, Relaxed)
+
+        if old_size == 1 then
+            self.inner().strong.fetch_sub(0, Aquire)
+            let _weak = Weak::from_inner(self.ptr)
+
+            unsafe drop_inplace(self.inner().data) end
+        end
+    end
+end

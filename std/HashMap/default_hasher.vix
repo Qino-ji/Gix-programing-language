@@ -1,0 +1,78 @@
+
+public struct DefaultHasher:
+    inner = AHasher
+end
+
+class DefaultHasher
+    public func new(): DefaultHasher
+        return DefaultHasher {
+            inner = AHasher.from_random_state(RandomState.new())
+        }
+    end
+end
+
+class Hasher for DefaultHasher
+    func finish(&self): uint64
+        return self.inner.finish()
+    end
+
+    func write(&var self, arg: uint8[])
+        return self.inner.write(arg)
+    end
+
+    func write_u8(&var self, arg: uint8)
+        return self.inner.write_u8(arg)
+    end
+
+    func write_u16(&var self, arg: uint16)
+        return self.inner.write_u16(arg)
+    end
+
+    func write_u32(&var self, arg: uint32)
+        return self.inner.write_u32(arg)
+    end
+
+    func write_u64(&var self, arg: uint64)
+        return self.inner.write_u64(arg)
+    end
+
+    func write_u128(&var self, arg: uint128)
+        return self.inner.write_u128(arg)
+    end
+
+    func write_usize(&var self, arg: usize)
+        return self.inner.write_usize(arg)
+    end
+
+    func write_i8(&var self, arg: int8)
+        return self.inner.write_i8(arg)
+    end
+
+    func write_i16(&var self, arg: int16)
+        return self.inner.write_i16(arg)
+    end
+
+    func write_i32(&var self, arg: int32)
+        return self.inner.write_i32(arg)
+    end
+
+    func write_i64(&var self, arg: int64)
+        return self.inner.write_i64(arg)
+    end
+
+    func write_i128(&var self, arg: int128)
+        return self.inner.write_i128(arg)
+    end
+
+    func write_isize(&var self, arg: isize)
+        return self.inner.write_isize(arg)
+    end
+
+    func write_str(&var self, arg: str)
+        return self.inner.write_str(arg)
+    end
+
+    func write_string(&var self, arg: String)
+        return self.inner.write_string(arg)
+    end
+end

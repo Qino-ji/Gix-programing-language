@@ -1,0 +1,40 @@
+struct Weak[T: UnSized]
+    ptr: NonNull[ArcInner[T]]
+end
+
+
+class Weak[T: UnSized]
+    func from_inner(ptr: NonNull[ArcInner[T]]): Weak[T]
+        return Self { ptr }
+    end
+
+    func inner(self): var ArcInner[T]
+        unsafe var *self.ptr end
+    end
+
+    func upgrade(&self): Option[Arc[T]]
+        let mut current = self.inner().strong.load(Relaxed)
+
+        while true do
+            if current == 0 then
+                return Option.None
+            end
+
+            let result = self.inner().strong.compare_exchange_weak(current, current + 1, Acquire, Relaxed)
+
+            match result
+                case Ok(_) return Option.Some(Arc.from_inner(self.ptr))
+                case Err(val) current = val
+            end
+        end
+    end
+
+    func drop(var self)
+        let old_weak = self.inner().weak.fetch_sub(1, Release)
+
+        if old_weak == 1 then
+            fence(Acquire)
+            unsafe dealloc(self.ptr) end
+        end
+    end
+end

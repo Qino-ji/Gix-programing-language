@@ -737,7 +737,6 @@ static void check_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors, Sourc
             break;
         }
 
-        // Fix while and for to pass bodies too:
         case Stmt_Whiles: {
             check_while_stmt(stmt, reg, errors, parent_cond);
             Register child = register_new(reg, reg->counter);

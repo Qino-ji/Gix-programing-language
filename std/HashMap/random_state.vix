@@ -1,0 +1,82 @@
+public struct RandomState:
+    var k0: uint64
+    var k1: uint64
+    var k2: uint64
+    var k3: uint64
+end
+
+public trait RandomSource:
+    func hasher_seed(&var self): usize
+end
+
+public struct DefaultRandomSource:
+    counter = usize
+end
+
+class DefaultRandomSource():
+    public func new(): DefaultRandomSource
+        return DefaultRandomSource {
+            counter = PI_U64X4.data[0] as usize
+        }
+    end
+end
+
+class RandomSource for DefaultRandomSource:
+    func hasher_seed(&var self): usize
+        let stack = &self as usize
+        let old = self.counter
+
+        self.counter = self.counter + stack
+        return old
+    end
+end
+
+public func get_src(): DefaultRandomSource
+    return DefaultRandomSource.new()
+end
+
+
+
+class RandomState():
+    public func new(): RandomState
+        var src = get_src()
+        let fixed = get_fixed_seeds()
+        return RandomState.from_keys(fixed[0], fixed[1], src.hasher_seed())
+    end
+
+    func from_keys(a: uint64[4], b: uint64[4], c: usize): RandomState
+        let k0 = a[0]
+        let k1 = a[1]
+        let k2 = a[2]
+        let k3 = a[3]
+        var hasher = AHasher.from_random_state(RandomState {
+            k0 = k0,
+            k1 = k1,
+            k2 = k2,
+            k3 = k3
+        })
+
+        hasher.write_usize(c)
+
+        return RandomState {
+            k0 = mix(hasher, b[0], b[2]),
+            k1 = mix(hasher, b[1], b[3]),
+            k2 = mix(hasher, b[2], b[1]),
+            k3 = mix(hasher, b[3], b[0])
+        }
+    end
+
+    public func with_seed(key: usize): RandomState
+        let fixed = get_fixed_seeds()
+        return RandomState.from_keys(fixed[0], fixed[1], key)
+    end
+
+    public func with_seeds(k0: uint64, k1: uint64, k2: uint64, k3: uint64): RandomState
+        return RandomState {
+            k0 = k0 ^ PI2[0],
+            k1 = k1 ^ PI2[1],
+            k2 = k2 ^ PI2[2],
+            k3 = k3 ^ PI2[3]
+        }
+    end
+end

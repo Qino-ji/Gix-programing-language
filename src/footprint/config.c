@@ -244,7 +244,7 @@ void config_free(Config *c) {
     free(c->footprint.file);
     free(c->footprint.link);
 
-    // compiler new fields
+    // compile new fields
     free(c->compiler.compiler_ref.dir);
     free(c->compiler.compiler_ref.env);
     free(c->compiler.backend.compiler);

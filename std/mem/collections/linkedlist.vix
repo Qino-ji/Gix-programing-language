@@ -1,0 +1,34 @@
+struct Node[T]
+    value: T
+    next: Option[Box[Node[T]]]
+end
+
+struct LinkedList[T]
+    head: Option[Box[Node[T]]]
+    len: usize
+end
+
+class LinkedList[T]
+    func new(): LinkedList[T]
+        return LinkedList { head: Option.None, len: 0 }
+    end
+
+    func push_front(var self, value: T)
+        let node = Box.new(Node {
+            value,
+            next: self.head
+        })
+        self.head = Option.Some(node)
+        self.len += 1
+    end
+
+    func pop_front(var self): Option[T]
+        match self.head
+            None => return Option.None
+            Some(node) =>
+                self.head = node.next
+                self.len -= 1
+                return Option.Some(node.value)
+        end
+    end
+end

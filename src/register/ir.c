@@ -420,7 +420,7 @@ static void hoist_decls(Stmts *body, size_t n, Register *reg, IR_StmtArr *out) {
             if (s->data.matchs.default_body_count > 0)
                 hoist_decls(s->data.matchs.default_body, s->data.matchs.default_body_count, reg, out);
             break;
-
+        case Stmt_AtomicOp: break;
         default: break;
         }
     }
@@ -647,6 +647,29 @@ static void lower_stmt(Stmts *s, Register *reg, IR_StmtArr *out, SourceRange fn_
             .tag = IR_Stmt_Expr,
             .origin = expr_range(&s->data.expr_stmt.expr),
             .data.expr = { .expr = ir_expr_alloc(ex) },
+        }));
+        break;
+    }
+
+    case Stmt_AtomicOp: {
+        RegisterEntry *ent = reg_get(reg, s->data.atomic_op.target);
+        size_t ac = s->data.atomic_op.args_count;
+        IR_Expr *args[3] = { NULL, NULL, NULL };
+
+        for (size_t i = 0; i < ac; i++) args[i] = lower_expr_alloc(&s->data.atomic_op.args[i], reg);
+
+        ARR_PUSH(*out, ((IR_Stmt){
+            .tag = IR_Stmt_AtomicOp,
+            .origin = s->data.atomic_op.range,
+            .data.atomic_op = {
+                .target     = s->data.atomic_op.target,
+                .target_eid = ent ? ent->eid.id : 0,
+                .op = s->data.atomic_op.op,
+                .args = { args[0], args[1], args[2] },
+                .args_count = ac,
+                .ordering = s->data.atomic_op.ordering,
+                .ordering2  = s->data.atomic_op.ordering2,
+            },
         }));
         break;
     }

@@ -1,6 +1,0 @@
-import core
-
-public unsafe func free_mem(ptr: ptr[void]): void
-    free(ptr)
-end
-

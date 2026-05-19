@@ -495,6 +495,7 @@ void pack_write_register(Register* reg, CheckerErrList* errors, LineStarts* ls, 
     khint_t it;
     ErrWriter ew = err_writer_new();
     char* path = fp_err_path(project_name, source_file);
+    char* tmp_path = fp_data_path(project_name, source_file);
 
     fp_ensure_tree(project_name);
     gw_init(&gw, project_name, source_file, src_hash);
@@ -562,6 +563,13 @@ void pack_write_register(Register* reg, CheckerErrList* errors, LineStarts* ls, 
         range_to_span(r, ls, &pe.line_start, &pe.col_start, &pe.line_end, &pe.col_end);
         err_writer_add(&ew, pe);
     }
+
+    if (tmp_path) {
+        dir_write_file(tmp_path, (const uint8_t*)source, source_len);
+        free(tmp_path);
+    }
+
+    fp_snapshot_write(project_name, source_file, source, source_len);
 
     err_writer_flush(&ew, path);
     err_writer_free(&ew);

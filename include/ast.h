@@ -104,6 +104,11 @@ typedef enum {
     Ins,
     Nots,
     Enums,
+    Atomics,
+    Modules,
+    Imports,
+    Froms,
+    Orderings,
     Identifier,
 } LexerTokenTag;
 
@@ -397,6 +402,9 @@ typedef enum {
     Stmt_Assigns,
     Stmt_Continues,
     Stmt_Elifs,
+    Stmt_Imports,
+    Stmt_Modules,
+    Stmt_AtomicOp,
 } StmtsTag;
 
 typedef enum {
@@ -413,6 +421,20 @@ typedef enum {
     ParseErr_InvalidOperation,
 } ParseErrKind;
 
+typedef enum {
+    Import_Named,
+    Import_Star,
+    Import_Plain,
+    Import_From,
+} ImportKind;
+
+typedef enum {
+    Ordering_Relaxed,
+    Ordering_Acquire,
+    Ordering_Release,
+    Ordering_AcqRel,
+    Ordering_SeqCst,
+} OrderingTag;
 
 typedef enum {
     Type_Int,
@@ -425,6 +447,7 @@ typedef enum {
     Type_Ptr,
     Type_RawPtr,
     Type_FnPtr,
+    Type_Atomic,
     Type_Custom,
 } TypeTag;
 
@@ -438,6 +461,7 @@ struct Type {
         struct { Type* inner; } ptr;
         struct { Type* inner; } raw_ptr;
         struct { SourceRange name; } custom;
+        struct { Type* inner; } atomic;  
         struct {
             Type* ret;
             Type* params;
@@ -483,6 +507,9 @@ struct Stmts {
         struct { Exprs expr; } expr_stmt;
         struct { SourceRange abi; SourceRange ffi; ExternFunction* funcs; size_t funcs_count; bool is_pub; } extern_;
         struct { ExternBlock block; SourceRange ffi; SourceRange range; } externs;
+        struct {ImportKind kind; SourceRange name; SourceRange path; bool is_star; SourceRange range; } imports;
+        struct {SourceRange name; Stmts* body; size_t body_count; bool is_pub; SourceRange range; } modules;
+        struct {SourceRange target; AtomicOpTag op; Exprs args[3]; size_t args_count; OrderingTag ordering; OrderingTag ordering2; SourceRange range; } atomic_op;
     } data;
 };
 

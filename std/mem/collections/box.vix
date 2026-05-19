@@ -1,0 +1,26 @@
+struct Box[T]
+    ptr: NonNull[T]
+end
+
+class Box[T]
+    func new(data: T): Box[T]
+        let ptr = alloc[T]()
+        unsafe *ptr = data end
+
+        return Box { ptr }
+    end
+
+    func unbox(self): T
+        let val = unsafe *self.ptr end
+        unsafe dealloc(self.ptr) end
+        return val
+    end
+
+    func deref(&self): &T
+        unsafe &*self.ptr end
+    end
+
+    func drop(var self)
+        unsafe dealloc(self.ptr) end
+    end
+end

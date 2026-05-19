@@ -410,4 +410,143 @@ static char* func_uint_path(const char* project, const char* source, const char*
     return path;
 }
 
+/* ── Add these to footprint.h alongside the other static path/io helpers ── */
+
+/* Single snapshot file for the whole project */
+static char* fp_snapshot_path(const char* project) {
+    char* root = fp_build_root();
+    char* path = dir_build_path(root, project, "data", "snapshot.vix.tmp", NULL);
+    free(root);
+    return path;
+}
+
+/* Extract just the base filename from a full path */
+static const char* fp_base_name(const char* source) {
+    const char* base = source;
+    for (const char* p = source; *p; p++)
+        if (*p == '/' || *p == '\\') base = p + 1;
+    return base;
+}
+
+/*
+ * fp_snapshot_write — called at end of pack_write_register.
+ * Updates the entry for `source_file` inside the project snapshot,
+ * preserving all other files' entries untouched.
+ *
+ * Format per entry:  [FILE:basename:bytecount]\n<raw source bytes>
+ */
+static void fp_snapshot_write(const char* project,
+                               const char* source_file,
+                               const char* source,
+                               size_t      source_len) {
+    const char* base     = fp_base_name(source_file);
+    char*       snap     = fp_snapshot_path(project);
+    if (!snap) return;
+
+    /* ── read existing snapshot (ok if missing — first run) ── */
+    FileData existing = {0};
+    dir_read_file(snap, &existing);   /* ignore error, existing.len stays 0 */
+
+    ByteBuf out = {0};
+
+    /* ── copy all entries except the one we're replacing ── */
+    const char* cur = (const char*)existing.data;
+    const char* end = cur + existing.len;
+
+    while (cur < end) {
+        /* every entry starts with "[FILE:" */
+        if (cur + 6 >= end || memcmp(cur, "[FILE:", 6) != 0) break;
+
+        const char* name_start = cur + 6;
+        const char* colon      = memchr(name_start, ':', (size_t)(end - name_start));
+        if (!colon) break;
+
+        const char* size_start = colon + 1;
+        const char* bracket    = memchr(size_start, ']', (size_t)(end - size_start));
+        if (!bracket) break;
+
+        size_t entry_name_len = (size_t)(colon - name_start);
+        size_t file_size      = (size_t)atoll(size_start);
+
+        /* content starts after "]\n" */
+        const char* content = bracket + 1;
+        if (content < end && *content == '\n') content++;
+
+        const char* entry_end = content + file_size;
+        if (entry_end > end) break;   /* corrupt — stop */
+
+        /* skip this entry if it's the file we're about to rewrite */
+        bool is_same = (entry_name_len == strlen(base) &&
+                        memcmp(name_start, base, entry_name_len) == 0);
+        if (!is_same)
+            bb_push_raw(&out, cur, (size_t)(entry_end - cur));
+
+        cur = entry_end;
+    }
+
+    /* ── write the updated entry ── */
+    /* header: "[FILE:<base>:<len>]\n" */
+    char hdr[512];
+    int  hlen = snprintf(hdr, sizeof(hdr), "[FILE:%s:%zu]\n", base, source_len);
+    bb_push_raw(&out, hdr,    (size_t)hlen);
+    bb_push_raw(&out, source, source_len);
+
+    dir_write_file(snap, out.data, out.len);
+
+    bb_free(&out);
+    ARR_FREE(existing);
+    free(snap);
+}
+
+/*
+ * fp_snapshot_read — returns heap-allocated source for `source_file`,
+ * or NULL if not found. Caller must free().
+ */
+static char* fp_snapshot_read(const char* project, const char* source_file) {
+    const char* base = fp_base_name(source_file);
+    char*       snap = fp_snapshot_path(project);
+    if (!snap) return NULL;
+
+    FileData fd = {0};
+    if (dir_read_file(snap, &fd) != DIR_OK) { free(snap); return NULL; }
+    free(snap);
+
+    const char* cur    = (const char*)fd.data;
+    const char* end    = cur + fd.len;
+    char*       result = NULL;
+
+    while (cur < end) {
+        if (cur + 6 >= end || memcmp(cur, "[FILE:", 6) != 0) break;
+
+        const char* name_start = cur + 6;
+        const char* colon      = memchr(name_start, ':', (size_t)(end - name_start));
+        if (!colon) break;
+
+        const char* size_start = colon + 1;
+        const char* bracket    = memchr(size_start, ']', (size_t)(end - size_start));
+        if (!bracket) break;
+
+        size_t entry_name_len = (size_t)(colon - name_start);
+        size_t file_size      = (size_t)atoll(size_start);
+
+        const char* content = bracket + 1;
+        if (content < end && *content == '\n') content++;
+
+        if (content + file_size > end) break;
+
+        if (entry_name_len == strlen(base) &&
+            memcmp(name_start, base, entry_name_len) == 0) {
+            result = malloc(file_size + 1);
+            memcpy(result, content, file_size);
+            result[file_size] = '\0';
+            break;
+        }
+
+        cur = content + file_size;
+    }
+
+    ARR_FREE(fd);
+    return result;
+}
+
 #endif

@@ -1,0 +1,349 @@
+
+
+const INITIAL_CAPACITY: usize = 16
+const LOAD_FACTOR: float = 0.75
+const GROUP_SIZE: usize = 16
+
+const EMPTY: uint8 = 0b11111111
+const DELETED: uint8 = 0b11111110
+const FULL_MASK: uint8 = 0b10000000
+
+struct Entry[K, V]:
+    var key: K
+    var value: V
+    var hash: uint64
+end
+
+struct ControlByte:
+    var data: uint8
+end
+
+struct HashMap[K, V]:
+    var ctrl: Array[ControlByte]
+    var entries: Array[Entry[K, V]]
+    var size: usize
+    var capacity: usize
+    var tombstones: usize
+    var seed: RandomState
+end
+
+class HashMap[K: Hash, V]():
+    public func new(): HashMap[K, V]
+        return HashMap.with_capacity(INITIAL_CAPACITY)
+    end
+
+    @operation("==")
+    public func eq(&self, other: &HashMap[K, V]): bool
+        if self.size != other.size
+            return false
+        end
+        // then iterate entries and compare keys/values
+        return true
+    end
+
+    public func with_capacity(capacity: usize): HashMap[K, V]
+        var needed = ((capacity as float) / LOAD_FACTOR) as usize
+        var cap = next_power_of_two[int64](needed)
+
+        if cap < 16 then
+            cap = 16
+        end
+
+        var ctrl = Array[ControlByte].with_capacity(cap + GROUP_SIZE)
+    
+        for i in range(0, cap + GROUP_SIZE) do
+            ctrl.add(ControlByte { data = EMPTY })
+        end
+
+        var entries = Array[Entry[K, V]].with_slots(cap)
+
+        return HashMap[K, V] {
+            ctrl = ctrl,
+            entries = entries,
+            size = 0,
+            capacity = cap,
+            tombstones = 0,
+            seed = RandomState.new()
+        }
+    end
+
+    func hash_key(&self, key: K): (uint64, usize, uint8)
+        var h = AHasher.from_random_state(self.seed)
+        key.hash(&var h)
+        var hash = h.finish()
+
+        var h1 = (hash as usize) & (self.capacity - 1)
+        var h2 = ((hash >> 57) as uint8) | FULL_MASK
+
+        return (hash, h1, h2)
+    end
+
+    func match_byte(&self, ctrl_group: usize, h2: uint8): uint16
+        var mask: uint16 = 0
+        for i in range(0, GROUP_SIZE) do
+            var ctrl_byte = self.ctrl[ctrl_group + i]
+
+            if ctrl_byte.data == h2 then
+                mask |= 1 << i
+            end
+        end
+
+        return mask
+    end
+
+    func match_empty(&self, ctrl_group: usize): uint16
+        var mask: uint16 = 0
+        for i in range(0, GROUP_SIZE) do
+            var ctrl_byte = self.ctrl[ctrl_group + i]
+            if ctrl_byte.data == EMPTY then
+                mask |= 1 << i
+            end
+        end
+        return mask
+    end
+
+    public func insert(&var self, key: K, value: V): Option[V]
+        var load = (self.size + self.tombstones) as float / self.capacity as float
+        if load > LOAD_FACTOR then
+            self.resize()
+        end
+
+        var (hash, h1, h2) = self.hash_key(key)
+        var index = h1
+        var probe_distance: usize = 0
+
+        while true do
+            var group_index = index & !(GROUP_SIZE - 1)
+            var match_mask = self.match_byte(group_index, h2)
+
+            while match_mask != 0 do
+                var bit_pos = trailing_zeros[int16](match_mask)
+                var slot = group_index + bit_pos
+                var entry = self.entries[slot]
+
+                if entry.key == key then
+                    var old_value = entry.value
+                    self.entries[slot] = Entry { key = entry.key, value = value, hash = entry.hash }
+
+                    return Some(old_value)
+                end
+
+                match_mask &= match_mask - 1
+            end
+
+            var empty_mask = self.match_empty(group_index)
+            if empty_mask != 0 then
+                var bit_pos: usize = 0
+                var _tmp = empty_mask
+                while (_tmp & 1) == 0 do
+                    bit_pos += 1
+                    _tmp >>= 1
+                end
+    
+                var slot = group_index + bit_pos
+
+                var ctrl_byte = ControlByte { data = h2 }
+                self.ctrl[slot] = ctrl_byte
+                self.entries[slot] = Entry {
+                    key = key,
+                    value = value,
+                    hash = hash
+                }
+                self.size += 1
+                return None
+            end
+
+            probe_distance += 1
+            index = (index + probe_distance) & (self.capacity - 1)
+
+            if probe_distance > self.capacity then
+                panic("HashMap probe overflow")
+            end
+        end
+    end
+
+    public func get(&self, key: K): Option[V]
+        var (_, h1, h2) = self.hash_key(key)
+        var index = h1
+        var probe_distance: usize = 0
+
+        while true do
+            var group_index = index & !(GROUP_SIZE - 1)
+            var match_mask = self.match_byte(group_index, h2)
+
+            while match_mask != 0 do
+                var bit_pos = match_mask.trailing_zeros()
+                var slot = group_index + bit_pos
+                var entry = self.entries[slot]
+                if entry.key == key then
+                    var old_value = entry.value
+                    return Some(old_value)                
+                end
+
+                match_mask &= match_mask - 1
+            end
+
+            var empty_mask = self.match_empty(group_index)
+            if empty_mask != 0 then
+                return None
+            end
+
+            probe_distance += 1
+            index = (index + probe_distance) & (self.capacity - 1)
+
+            if probe_distance > self.capacity then
+                return None
+            end
+        end
+    end
+
+    public func remove(&var self, key: K): Option[V]
+        var (_, h1, h2) = self.hash_key(key)
+        var index = h1
+        var probe_distance: usize = 0
+
+        while true do
+            var group_index = index & !(GROUP_SIZE - 1)
+            var match_mask = self.match_byte(group_index, h2)
+
+            while match_mask != 0 do
+                var bit_pos = match_mask.trailing_zeros()
+                var slot = group_index + bit_pos
+
+                var entry = self.entries[slot]
+                if entry.key == key then
+                    var old_value = entry.value
+                    var ctrl_byte = ControlByte { data = DELETED }
+                    self.ctrl[slot] = ctrl_byte
+                    self.size -= 1
+                    self.tombstones += 1
+
+                    return Some(old_value)
+                end
+
+                match_mask &= match_mask - 1
+            end
+
+            var empty_mask = self.match_empty(group_index)
+            if empty_mask != 0 then
+                return None
+            end
+
+            probe_distance += 1
+            index = (index + probe_distance) & (self.capacity - 1)
+
+            if probe_distance > self.capacity then
+                return None
+            end
+        end
+    end
+
+    public func get_mut(&var self, key: K): Option[&var V]
+        var (_, h1, h2) = self.hash_key(key)
+        var index = h1
+        var probe_distance: usize = 0
+
+        while true do
+            var group_index = index & !(GROUP_SIZE - 1)
+            var match_mask = self.match_byte(group_index, h2)
+
+            while match_mask != 0 do
+                var bit_pos = match_mask.trailing_zeros()
+                var slot = group_index + bit_pos
+                var entry = self.entries[slot]
+
+                if entry.key == key then
+                    var old_value = entry.value
+                    return Some(&var self.entries[slot])
+                end
+
+                match_mask &= match_mask - 1
+            end
+
+            var empty_mask = self.match_empty(group_index)
+            if empty_mask != 0 then
+                return None
+            end
+
+            probe_distance += 1
+            index = (index + probe_distance) & (self.capacity - 1)
+
+            if probe_distance > self.capacity then
+                return None
+            end
+        end
+    end
+
+    public func is_empty(&self): bool
+        return self.size == 0
+    end
+
+    public func contains_key(&self, key: K): bool
+        return self.get(key).is_some()
+    end
+
+    public func len(&self): usize
+        return self.size
+    end
+
+    public func clear(&var self)
+        for i in range(0, self.capacity + GROUP_SIZE) do
+            self.ctrl[i] = ControlByte { data = EMPTY }
+        end
+        self.size = 0
+        self.tombstones = 0
+    end
+
+
+    func resize(&var self)
+        var new_capacity = self.capacity * 2
+        var new_map = HashMap.with_capacity(new_capacity)
+        new_map.seed = self.seed
+
+        for i in range(0, self.capacity) do
+            var ctrl_byte = self.ctrl[i]
+            var ctrl = ctrl_byte.data
+
+            if ctrl != EMPTY and ctrl != DELETED then
+                var entry = self.entries[i]
+
+                var h1 = (entry.hash as usize) & (new_map.capacity - 1)
+                var h2 = ((entry.hash >> 57) as uint8) | FULL_MASK
+
+                var index = h1
+                var probe_distance: usize = 0
+
+                while true do
+                    var group_index = index & !(GROUP_SIZE - 1)
+                    var empty_mask = new_map.match_empty(group_index)
+
+                    if empty_mask != 0 then
+                        var bit_pos = empty_mask.trailing_zeros()
+                        var slot = group_index + bit_pos
+
+                        var ctrl_byte = ControlByte { data = h2 }
+                        new_map.ctrl[slot] = ctrl_byte
+                        new_map.entries[slot] = entry
+                        new_map.size += 1
+                        break
+                    end
+
+                    probe_distance += 1
+                    index = (index + probe_distance) & (new_map.capacity - 1)
+                end
+            end
+        end
+
+        self.ctrl = new_map.ctrl
+        self.entries = new_map.entries
+        self.capacity = new_map.capacity
+        self.tombstones = 0
+        return
+    end
+
+    @free
+    public func free(&var self)
+        Array[ControlByte].free(&var self.ctrl)
+        Array[Entry[K, V]].free(&var self.entries)
+    end
+end

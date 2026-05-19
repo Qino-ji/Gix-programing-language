@@ -232,6 +232,10 @@ static void lexer_words(Lexer* self) {
     else if (strcmp(word, "break")    == 0) self->top.tag = Breaks;
     else if (strcmp(word, "extern")   == 0) self->top.tag = Externs;
     else if (strcmp(word, "lambda")   == 0) self->top.tag = Lambdas;
+    else if (strcmp(word, "Atomic") == 0) self->top.tag =   Atomics;
+    else if (strcmp(word, "module") == 0) self->top.tag =   Modules;
+    else if (strcmp(word, "import") == 0) self->top.tag =   Imports;
+    else if (strcmp(word, "from") == 0) self->top.tag   =   Froms;
     else if (strcmp(word, "int")      == 0) { self->top.tag = Ints; self->top.data.value_int = 32; }
     else if (strcmp(word, "int8")     == 0) { self->top.tag = Ints; self->top.data.value_int = 8; }
     else if (strcmp(word, "int16")    == 0) { self->top.tag = Ints; self->top.data.value_int = 16; }
@@ -242,6 +246,24 @@ static void lexer_words(Lexer* self) {
     else if (strcmp(word, "float64")  == 0) { self->top.tag = Floats; self->top.data.value_int = 64; }
     else if (strcmp(word, "char")     == 0) { self->top.tag = Chars; self->top.data.value_int = 8; }
     else if (strcmp(word, "string")   == 0) { self->top.tag = Strings; self->top.data.value_int = 0; }
+    else if (strcmp(word, "Relaxed") == 0) { self->top.tag = Orderings; self->top.data.value_int = Ordering_Relaxed; }
+    else if (strcmp(word, "Acquire") == 0) { self->top.tag = Orderings; self->top.data.value_int = Ordering_Acquire; }
+    else if (strcmp(word, "Release") == 0) { self->top.tag = Orderings; self->top.data.value_int = Ordering_Release; }
+    else if (strcmp(word, "AcqRel")  == 0) { self->top.tag = Orderings; self->top.data.value_int = Ordering_AcqRel;  }
+    else if (strcmp(word, "SeqCst")  == 0) { self->top.tag = Orderings; self->top.data.value_int = Ordering_SeqCst;  }
+
+    else if (strcmp(word, "load")             == 0) { self->top.tag = Orderings; self->top.data.value_int = AtomicOp_Load;            }
+    else if (strcmp(word, "store")            == 0) { self->top.tag = Orderings; self->top.data.value_int = AtomicOp_Store;           }
+    else if (strcmp(word, "swap")             == 0) { self->top.tag = Orderings; self->top.data.value_int = AtomicOp_Swap;            }
+    else if (strcmp(word, "compare_exchange") == 0) { self->top.tag = Orderings; self->top.data.value_int = AtomicOp_CompareExchange; }
+    else if (strcmp(word, "fetch_add")        == 0) { self->top.tag = Orderings; self->top.data.value_int = AtomicOp_FetchAdd;        }
+    else if (strcmp(word, "fetch_sub")        == 0) { self->top.tag = Orderings; self->top.data.value_int = AtomicOp_FetchSub;        }
+    else if (strcmp(word, "fetch_and")        == 0) { self->top.tag = Orderings; self->top.data.value_int = AtomicOp_FetchAnd;        }
+    else if (strcmp(word, "fetch_or")         == 0) { self->top.tag = Orderings; self->top.data.value_int = AtomicOp_FetchOr;         }
+    else if (strcmp(word, "fetch_xor")        == 0) { self->top.tag = Orderings; self->top.data.value_int = AtomicOp_FetchXor;        }
+    else if (strcmp(word, "fetch_nand")       == 0) { self->top.tag = Orderings; self->top.data.value_int = AtomicOp_FetchNand;       }
+    else if (strcmp(word, "fetch_max")        == 0) { self->top.tag = Orderings; self->top.data.value_int = AtomicOp_FetchMax;        }
+    else if (strcmp(word, "fetch_min")        == 0) { self->top.tag = Orderings; self->top.data.value_int = AtomicOp_FetchMin;        }
     else { self->top.tag = Identifier; self->top.data.s = word; return; }
 
     free(word);

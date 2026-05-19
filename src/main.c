@@ -4,8 +4,9 @@
 #include "lexer.h"
 #include "parser.h"
 #include "footprint.h"
-#include "pack.h"   /* NEW */
+#include "pack.h"
 #include "config.h"
+#include "diff.h"
 
 uint64_t pack_hash_source(const char* src, size_t len);
 void pack_write_register(Register* reg, CheckerErrList* errors, LineStarts* ls, const char* source, size_t source_len, const char* source_file, const char* project_name);
@@ -21,6 +22,7 @@ void      register_insert(Register* reg, StringView name, RegisterEntry entry);
 RegisterEntry* register_get(Register* reg, StringView name);
 FuncBodyList register_body(Stmts* body, size_t count, Register* reg, CheckerErrList* errors);
 void func_body_list_free(FuncBodyList* fl);
+int vix_diff_files(const char* old_path, const char* new_path);
 
 char *read_file_to_string(const char *path) {
     FILE *file = fopen(path, "rb");
@@ -40,7 +42,6 @@ char *read_file_to_string(const char *path) {
     return buffer;
 }
 
-/* ── AST printers (unchanged) ────────────────────────────────────────────── */
 static bool expr_exists(Exprs expr) {
     return expr.tag != 0 || expr.data.literals.range.start != NULL;
 }
@@ -316,42 +317,36 @@ void print_statement(Stmts stmt, int depth) {
     }
 }
 
-/* ── main ────────────────────────────────────────────────────────────────── */
 int main(int argc, char **argv) {
     if (argc < 3) {
         printf("Usage: vix run <filename.vix>\n");
         return 1;
     }
+
     if (strcmp(argv[1], "run") != 0) {
         printf("Unknown command: %s (Did you mean 'run'?)\n", argv[1]);
         return 1;
     }
 
+
+
     const char *filename = argv[2];
     char *source = read_file_to_string(filename);
     if (!source) return 1;
 
-    /* ── .pack sync ─────────────────────────────────────────────────────── */
     uint64_t src_hash = pack_hash_source(source, strlen(source));
 
     Config cfg = config_parse_upwards(filename); // finds config.toml walking up from filename
-
-    // replace bin_max with max:
     PACK_CHUNK_SIZE = cfg.footprint.max != 0 && cfg.footprint.max != UINT64_MAX ? (size_t)cfg.footprint.max : (64 * 1024 * 1024);
     FP_LINK_OVERRIDE = cfg.footprint.link; // link stting
 
-    const char *project_name = (cfg.valid && cfg.info.name) ? cfg.info.name        : "my_project";
+    const char *project_name = (cfg.valid && cfg.info.name) ? cfg.info.name : "my_project";
     const char *footprint_link = (cfg.valid && cfg.footprint.link) ? cfg.footprint.link   : NULL;
+
     uint32_t owns = cfg.valid ? config_pack_own_flags(&cfg) : 0;
-
     ProjectPack proj = project_pack_sync_from_config(filename, src_hash, &cfg);
-
-
-    /* ── end .pack sync ─────────────────────────────────────────────────── */
-
     FileManager files = file_manager_new();
     FileId file_id = file_manager_add(&files, filename, source);
-
     CheckerErrList errors = {0};
     parser_set_error_list(&errors);
 
@@ -391,12 +386,27 @@ int main(int argc, char **argv) {
     Register global_reg  = register_new(NULL, &counter);
 
     FuncBodyList bodies = register_body(program.data, program.len, &global_reg, &errors);
-
-    // add before pack_write_register call:
     RegisterEntry* dbg = register_get(&global_reg, (StringView){"main", 4});
-    fprintf(stderr, "[debug] main entry: %p, child_reg: %p\n",
-        (void*)dbg,
-        dbg ? (void*)dbg->data.function.child_reg : NULL);
+
+    {
+        char* old_src = fp_snapshot_read(project_name, filename);
+        if (old_src) {
+            VixParsedFile old_pf = {0};
+            DiffRecordArr diff_records = {0};
+            vix_parse_source(filename, old_src, &old_pf);
+            vix_diff_registers(&old_pf.reg, &global_reg,
+                               program.data, program.len,
+                               source, &files, file_id, &diff_records);
+            if (diff_records.len > 0)
+                vix_diff_print(&diff_records, "(previous)", filename);
+            vix_diff_free(&diff_records);
+            vix_parsed_file_free(&old_pf);
+            free(old_src);
+        }
+    }
+
+
+    fprintf(stderr, "[debug] main entry: %p, child_reg: %p\n", (void*)dbg, dbg ? (void*)dbg->data.function.child_reg : NULL);
     pack_write_register(&global_reg, &errors, &parser.lexer.line_starts, source, strlen(source), filename, project_name);
     register_free(&global_reg);
     func_body_list_free(&bodies);
