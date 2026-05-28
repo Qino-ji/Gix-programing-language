@@ -9,9 +9,38 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
+# ── LLVM 18 ──────────────────────────────────────────────────────────────────
+set(LLVM_DIR "C:/LLVM/18.1.8")
+set(LLVM_INCLUDE_DIR "${LLVM_DIR}/include")
+
+set(LLVM_LIBS
+    "${LLVM_DIR}/lib/LLVMCore.lib"
+    "${LLVM_DIR}/lib/LLVMRemarks.lib"
+    "${LLVM_DIR}/lib/LLVMBitstreamReader.lib"
+    "${LLVM_DIR}/lib/LLVMBinaryFormat.lib"
+    "${LLVM_DIR}/lib/LLVMTargetParser.lib"
+    "${LLVM_DIR}/lib/LLVMSupport.lib"
+    "${LLVM_DIR}/lib/LLVMDemangle.lib"
+)
+
+set(LLVM_DEFS
+    _CRT_SECURE_NO_DEPRECATE
+    _CRT_SECURE_NO_WARNINGS
+    _CRT_NONSTDC_NO_DEPRECATE
+    _CRT_NONSTDC_NO_WARNINGS
+    __STDC_CONSTANT_MACROS
+    __STDC_FORMAT_MACROS
+    __STDC_LIMIT_MACROS
+    UNICODE
+    _UNICODE
+)
+# ─────────────────────────────────────────────────────────────────────────────
+
 file(GLOB_RECURSE VIX_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/codegen/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/codegen/*.cpp"
 )
 
 set(VIX_MAIN_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/main.c")
@@ -19,13 +48,9 @@ list(REMOVE_ITEM VIX_SOURCES "${VIX_MAIN_SOURCE}")
 
 option(VIX_BUILD_CORE "Build core sources under src/" ON)
 
-# ── Path where .vix project sources live ────────────────────────────────
-# Override with -DVIX_PROJECT_ROOT=<path> if your .vix files live elsewhere.
-# Defaults to a "vix_src" folder next to CMakeLists.txt.
 set(VIX_PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/vix_src"
     CACHE PATH "Root directory that contains .vix source files to check")
 
-# The project name passed to `vix check`.  Matches what config.toml says.
 set(VIX_PROJECT_NAME "my_project"
     CACHE STRING "Vix project name (used by the pack/snapshot system)")
 
@@ -41,7 +66,7 @@ if(VIX_BUILD_CORE)
     list(LENGTH VIX_SOURCES VIX_SOURCE_COUNT)
     message(STATUS "VIX_BUILD_CORE=ON: building ${VIX_SOURCE_COUNT} source files from src/")
 
-    # ── flatcc ──────────────────────────────────────────────────────────
+    # ── flatcc ───────────────────────────────────────────────────────────
     set(FLATCC_INCLUDE_DIR "C:/Users/Client/Desktop/vcpkg/installed/x64-windows/include")
     set(FLATCC_LIB         "C:/Users/Client/Desktop/vcpkg/installed/x64-windows/lib/flatccrt.lib")
     set(FLATCC_LIB_DEBUG   "C:/Users/Client/Desktop/vcpkg/installed/x64-windows/debug/lib/flatccrt_d.lib")
@@ -71,17 +96,21 @@ if(VIX_BUILD_CORE)
     )
     # ────────────────────────────────────────────────────────────────────
 
+    # ── Define targets FIRST, then configure ────────────────────────────
     add_library(vix_core STATIC ${VIX_SOURCES})
+    add_executable(vix ${VIX_MAIN_SOURCE})
+
     add_dependencies(vix_core vix_fbs_gen)
 
-    add_executable(vix ${VIX_MAIN_SOURCE})
-    target_link_libraries(vix PRIVATE vix_core)
-
+    # ── Include dirs ─────────────────────────────────────────────────────
     target_include_directories(vix_core
         PUBLIC
             "${CMAKE_CURRENT_SOURCE_DIR}/include"
             "${CMAKE_CURRENT_SOURCE_DIR}/src"
             "${CMAKE_CURRENT_SOURCE_DIR}/src/gen"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/codegen"
+            "${LLVM_INCLUDE_DIR}"
+            "${FLATCC_INCLUDE_DIR}"
     )
 
     target_include_directories(vix
@@ -89,40 +118,34 @@ if(VIX_BUILD_CORE)
             "${CMAKE_CURRENT_SOURCE_DIR}/include"
             "${CMAKE_CURRENT_SOURCE_DIR}/src"
             "${CMAKE_CURRENT_SOURCE_DIR}/src/gen"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/codegen"
     )
 
-    target_include_directories(vix_core PUBLIC "${FLATCC_INCLUDE_DIR}")
+    # ── Compile definitions ───────────────────────────────────────────────
+    target_compile_definitions(vix_core PUBLIC ${LLVM_DEFS})
+
+    # ── Link libraries ────────────────────────────────────────────────────
     target_link_libraries(vix_core PUBLIC
+        ${LLVM_LIBS}
         "$<$<CONFIG:Debug>:${FLATCC_LIB_DEBUG}>"
         "$<$<NOT:$<CONFIG:Debug>>:${FLATCC_LIB}>"
     )
 
+    target_link_libraries(vix PRIVATE vix_core)
+
+    # ── Warnings ──────────────────────────────────────────────────────────
     if(MSVC)
         target_compile_options(vix_core PRIVATE /W4)
-        target_compile_options(vix     PRIVATE /W4)
+        target_compile_options(vix      PRIVATE /W4)
     else()
         target_compile_options(vix_core PRIVATE -Wall -Wextra -Wpedantic)
-        target_compile_options(vix     PRIVATE -Wall -Wextra -Wpedantic)
+        target_compile_options(vix      PRIVATE -Wall -Wextra -Wpedantic)
     endif()
 
-    # ── Incremental semantic check for every .vix source file ───────────
-    #
-    # At the end of every build CMake:
-    #   1. Collects all .vix files under VIX_PROJECT_ROOT (configure-time glob).
-    #   2. For each file adds a POST_BUILD custom command that calls
-    #        vix check <file> <project_name>
-    #      CMake only re-runs the command when the .vix file's timestamp is
-    #      newer than the sentinel stamp file we touch on success.
-    #
-    # The stamp files live in <build_dir>/vix_stamps/ so they survive
-    # incremental builds but are wiped by a clean.
-    # ────────────────────────────────────────────────────────────────────
-
+    # ── Incremental .vix semantic checks ─────────────────────────────────
     set(VIX_STAMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/vix_stamps")
     file(MAKE_DIRECTORY "${VIX_STAMP_DIR}")
 
-    # Glob .vix files at configure time.
-    # CONFIGURE_DEPENDS re-runs CMake automatically when the set changes.
     file(GLOB_RECURSE VIX_PROJECT_SOURCES CONFIGURE_DEPENDS
         "${VIX_PROJECT_ROOT}/*.vix"
     )
@@ -137,14 +160,9 @@ if(VIX_BUILD_CORE)
     endif()
 
     foreach(_vix_file IN LISTS VIX_PROJECT_SOURCES)
-        # Build a safe filename for the stamp: replace non-alphanum with '_'
         string(REGEX REPLACE "[^a-zA-Z0-9]" "_" _safe_name "${_vix_file}")
         set(_stamp "${VIX_STAMP_DIR}/${_safe_name}.stamp")
 
-        #
-        # add_custom_command(OUTPUT ...) — CMake only reruns this when
-        # the .vix file is newer than the stamp.
-        #
         add_custom_command(
             OUTPUT  "${_stamp}"
             COMMAND "$<TARGET_FILE:vix>"
@@ -157,12 +175,9 @@ if(VIX_BUILD_CORE)
             VERBATIM
         )
 
-        # Give the stamp a target name so it participates in the build graph.
         string(MD5 _hash "${_vix_file}")
         set(_tgt "vix_check_${_hash}")
         add_custom_target("${_tgt}" ALL DEPENDS "${_stamp}")
-
-        # The check must happen after the vix binary is fully linked.
         add_dependencies("${_tgt}" vix)
     endforeach()
 

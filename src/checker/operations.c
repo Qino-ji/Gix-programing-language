@@ -24,7 +24,6 @@ bool conds_equal(Exprs* a, Exprs* b);
 bool is_always(Exprs* cond);
 bool is_conditionable(Type t);
 bool is_builtin_type(SourceRange name);
-bool is_valid_return_type(SourceRange r);
 bool is_tautolog(Exprs* cond);
 
 
@@ -86,7 +85,6 @@ void check_guard_pattern(Pattern* p, SourceRange range, Register* reg, CheckerEr
     switch (p->tag) {
         case Pattern_Guard: {
             if (p->data.guard.is_var) {
-                // warn: binding to "_" is pointless
                 StringView bname = p->data.guard.binding;
                 if (bname.len == 1 && bname.ptr[0] == '_') {
                     checker_err_push(errors, (CheckerErr){
@@ -105,7 +103,6 @@ void check_guard_pattern(Pattern* p, SourceRange range, Register* reg, CheckerEr
                 return;
             }
 
-            // pattern = expr form
             check_guard_pattern(p->data.guard.pattern, range, reg, errors);
 
             Type rhs_type = infer_expr_type(p->data.guard.expr, reg);

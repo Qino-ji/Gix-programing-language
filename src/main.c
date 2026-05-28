@@ -6,12 +6,13 @@
 #include "footprint.h"
 #include "pack.h"
 #include "config.h"
-#include "diff.h"
+#include "codegen.h"
+#include "ir.h"
+#include "auto.h"
 
 uint64_t pack_hash_source(const char* src, size_t len);
 void pack_write_register(Register* reg, CheckerErrList* errors, LineStarts* ls, const char* source, size_t source_len, const char* source_file, const char* project_name);
 char*       read_file_to_string(const char* path);
-LexerToken* lex_all(FileManager* files, FileId file_id, const char* source, size_t* out_count);
 void        print_expression(Exprs expr, int depth);
 void        print_statement(Stmts stmt, int depth);
 void        parser_set_error_list(CheckerErrList* list);
@@ -22,7 +23,24 @@ void      register_insert(Register* reg, StringView name, RegisterEntry entry);
 RegisterEntry* register_get(Register* reg, StringView name);
 FuncBodyList register_body(Stmts* body, size_t count, Register* reg, CheckerErrList* errors);
 void func_body_list_free(FuncBodyList* fl);
-int vix_diff_files(const char* old_path, const char* new_path);
+
+static void print_type(Type* t) {
+    if (!t) { printf("?"); return; }
+    switch (t->tag) {
+        case Type_Ptr:    printf("*"); print_type(t->data.ptr.inner);     break;
+        case Type_RawPtr: printf("**"); print_type(t->data.raw_ptr.inner); break;
+        case Type_Int:    printf("int%d", t->data.int_t.bits);            break;
+        case Type_Float:  printf("float%d", t->data.float_t.bits);        break;
+        case Type_Bool:   printf("bool");                                  break;
+        case Type_Char:   printf("char");                                  break;
+        case Type_Str:    printf("str");                                   break;
+        case Type_Void:   printf("void");                                  break;
+        case Type_Custom:
+            printf("%.*s", (int)(t->data.custom.name.end - t->data.custom.name.start), t->data.custom.name.start);
+            break;
+        default:          printf("?");                                     break;
+    }
+}
 
 char *read_file_to_string(const char *path) {
     FILE *file = fopen(path, "rb");
@@ -60,6 +78,7 @@ void print_expression(Exprs expr, int depth) {
                 (int)(expr.data.literals.range.end - expr.data.literals.range.start),
                 expr.data.literals.range.start);
             break;
+            
         case Expr_Identifiers:
             printf("Ident: %.*s\n",
                 (int)(expr.data.identifiers.name.end - expr.data.identifiers.name.start),
@@ -80,17 +99,19 @@ void print_expression(Exprs expr, int depth) {
             if (expr.data.unary.operand) print_expression(*expr.data.unary.operand, depth + 1);
             break;
         case Expr_Function:
-            printf("Call: %.*s\n",
-                (int)(expr.data.function_call.name.end - expr.data.function_call.name.start),
-                expr.data.function_call.name.start);
-            for (size_t i = 0; i < expr.data.function_call.param_count; i++) {
-                for (int d = 0; d < depth + 1; d++) printf("  ");
-                printf("ARG: %.*s:\n",
-                    (int)(expr.data.function_call.param[i].name.end - expr.data.function_call.param[i].name.start),
-                    expr.data.function_call.param[i].name.start);
-                print_expression(expr.data.function_call.param[i].value, depth + 2);
-            }
-            break;
+    printf("Call: %.*s (param_count=%zu)\n",
+        (int)(expr.data.function_call.name.end - expr.data.function_call.name.start),
+        expr.data.function_call.name.start,
+        expr.data.function_call.param_count);
+    for (size_t i = 0; i < expr.data.function_call.param_count; i++) {
+        for (int d = 0; d < depth + 1; d++) printf("  ");
+        printf("ARG[%zu] name_len=%td value_tag=%d\n",
+            i,
+            expr.data.function_call.param[i].name.end - expr.data.function_call.param[i].name.start,
+            expr.data.function_call.param[i].value.tag);
+        print_expression(expr.data.function_call.param[i].value, depth + 2);
+    }
+    break;
         case Expr_Class_Calls:
             printf("ClassCall: %.*s.%.*s\n",
                 (int)(expr.data.class_calls.name.end - expr.data.class_calls.name.start),
@@ -130,6 +151,54 @@ void print_statement(Stmts stmt, int depth) {
     for (int i = 0; i < depth; i++) printf("  ");
 
     switch (stmt.tag) {
+            case Stmt_Externs: {
+
+printf("EXTERN abi=\"%.*s\" ffi=\"%.*s\" funcs_count=%zu\n",
+    (int)(stmt.data.extern_.abi.end - stmt.data.extern_.abi.start), stmt.data.extern_.abi.start,
+    (int)(stmt.data.extern_.ffi.end - stmt.data.extern_.ffi.start), stmt.data.extern_.ffi.start,
+    stmt.data.extern_.funcs_count);
+
+if (!stmt.data.extern_.funcs) { printf("  [funcs is NULL]\n"); break; }
+
+for (size_t i = 0; i < stmt.data.extern_.funcs_count; i++) {
+    ExternFunction* fn = &stmt.data.extern_.funcs[i];
+    
+
+        for (int d = 0; d < depth + 1; d++) printf("  ");
+
+        
+        if (!fn->name.start || !fn->name.end || fn->name.end < fn->name.start) {
+            printf("EXTERN_FUNC: [bad name range]\n"); continue;
+        }
+        
+        const char* ret_start = fn->return_type.start;
+        const char* ret_end   = fn->return_type.end;
+        if (!ret_start || !ret_end || ret_end < ret_start) {
+            printf("EXTERN_FUNC: %.*s -> [bad return_type range]\n",
+                (int)(fn->name.end - fn->name.start), fn->name.start);
+        } else {
+            printf("EXTERN_FUNC: %.*s -> %.*s\n",
+                (int)(fn->name.end - fn->name.start), fn->name.start,
+                (int)(ret_end - ret_start), ret_start);
+        }
+
+        if (!fn->params) { printf("  [params is NULL, count=%zu]\n", fn->params_count); continue; }
+
+        for (size_t j = 0; j < fn->params_count; j++) {
+            for (int d = 0; d < depth + 2; d++) printf("  ");
+            Param* p = &fn->params[j];
+            if (!p->c_type.start || !p->c_type.end || p->c_type.end < p->c_type.start) {
+                printf("PARAM: %.*s: [bad c_type range]\n",
+                    (int)(p->name.end - p->name.start), p->name.start);
+            } else {
+                printf("PARAM: %.*s: ", (int)(p->name.end - p->name.start), p->name.start);
+                print_type(p->type_tree);
+                printf("\n");
+            }
+        }
+    }
+    break;
+}
         case Stmt_Functions:
             printf("FUNC: %.*s%s%s\n",
                 (int)(stmt.data.functions.name.end - stmt.data.functions.name.start),
@@ -336,9 +405,9 @@ int main(int argc, char **argv) {
 
     uint64_t src_hash = pack_hash_source(source, strlen(source));
 
-    Config cfg = config_parse_upwards(filename); // finds config.toml walking up from filename
+    Config cfg = config_parse_upwards(filename); 
     PACK_CHUNK_SIZE = cfg.footprint.max != 0 && cfg.footprint.max != UINT64_MAX ? (size_t)cfg.footprint.max : (64 * 1024 * 1024);
-    FP_LINK_OVERRIDE = cfg.footprint.link; // link stting
+    FP_LINK_OVERRIDE = cfg.footprint.link; 
 
     const char *project_name = (cfg.valid && cfg.info.name) ? cfg.info.name : "my_project";
     const char *footprint_link = (cfg.valid && cfg.footprint.link) ? cfg.footprint.link   : NULL;
@@ -386,25 +455,46 @@ int main(int argc, char **argv) {
     Register global_reg  = register_new(NULL, &counter);
 
     FuncBodyList bodies = register_body(program.data, program.len, &global_reg, &errors);
-    RegisterEntry* dbg = register_get(&global_reg, (StringView){"main", 4});
+    type_infer_pass(program.data, program.len, &global_reg);  
+    
+    printf("\n=== REGISTER ===\n");
+    printf("Register table size: %zu\n", kh_size(global_reg.table));
 
-    {
-        char* old_src = fp_snapshot_read(project_name, filename);
-        if (old_src) {
-            VixParsedFile old_pf = {0};
-            DiffRecordArr diff_records = {0};
-            vix_parse_source(filename, old_src, &old_pf);
-            vix_diff_registers(&old_pf.reg, &global_reg,
-                               program.data, program.len,
-                               source, &files, file_id, &diff_records);
-            if (diff_records.len > 0)
-                vix_diff_print(&diff_records, "(previous)", filename);
-            vix_diff_free(&diff_records);
-            vix_parsed_file_free(&old_pf);
-            free(old_src);
+IR_Module ir_mod = lower_module(project_name, program.data, program.len, &global_reg);
+
+    
+    printf("\n=== IR MODULE ===\n");
+    printf("Module name: %s\n", ir_mod.name);
+    printf("Definitions count: %zu\n", ir_mod.defs_count);
+    for (size_t i = 0; i < ir_mod.defs_count; i++) {
+        IR_Def* def = &ir_mod.defs[i];
+        printf("  Def[%zu]: tag=%d\n", i, def->tag);
+        if (def->tag == IR_Def_Function) {
+            printf("    Function: %.*s\n", 
+                   (int)(def->data.function.def.name.end - def->data.function.def.name.start),
+                   def->data.function.def.name.start);
+            printf("    Return type.tag: %d\n", def->data.function.def.return_type.tag);
+            printf("    Params count: %zu\n", def->data.function.def.params_count);
+            printf("    Body statements: %zu\n", def->data.function.def.body_count);
         }
     }
+    printf("\n");
 
+CG *cg = cg_create(project_name);
+cg_module(cg, &ir_mod);
+if (!cg_verify(cg)) {
+    fprintf(stderr, "codegen: module verification failed\n");
+}
+
+cg_emit_obj(cg, project_name, filename);
+cg_link_exe(project_name, filename);
+
+cg_destroy(cg);
+
+ir_module_free(&ir_mod); 
+
+
+    RegisterEntry* dbg = register_get(&global_reg, (StringView){"main", 4});
 
     fprintf(stderr, "[debug] main entry: %p, child_reg: %p\n", (void*)dbg, dbg ? (void*)dbg->data.function.child_reg : NULL);
     pack_write_register(&global_reg, &errors, &parser.lexer.line_starts, source, strlen(source), filename, project_name);
@@ -419,8 +509,5 @@ int main(int argc, char **argv) {
     file_manager_free(&files);
     free(source);
     config_free(&cfg);
-
-    return errors.count > 0 ? 1 : 0;
 }
 
-// This file is temp and used only for testing.

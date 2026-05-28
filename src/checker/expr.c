@@ -23,9 +23,11 @@ bool conds_equal(Exprs* a, Exprs* b);
 bool is_always(Exprs* cond);
 bool is_conditionable(Type t);
 bool is_builtin_type(SourceRange name);
-bool is_valid_return_type(SourceRange r);
 bool is_tautolog(Exprs* cond);
 static void check_expr(Exprs* expr, Register* reg, CheckerErrList* errors);
+void maybe_resolve_generic(SourceRange name, SourceRange* generic_args, size_t generic_count, Register* reg, CheckerErrList* errors);
+char* mangle_name(StringView base, GenericBinding* bindings, size_t count);
+
 
 
 void check_literal_expr(Exprs* expr, Register* reg, CheckerErrList* errors) {
@@ -179,11 +181,12 @@ void check_binary_op_expr(Exprs* expr, Register* reg, CheckerErrList* errors) {
 
 
 void check_function_call_expr(Exprs* expr, Register* reg, CheckerErrList* errors) {
+    maybe_resolve_generic(expr->data.function_call.name, expr->data.function_call.generic_params_count, expr->data.function_call.generic_params_count, reg, errors);
+
     SourceRange func_name = expr->data.function_call.name;
     StringView func_sv = string_range(func_name);
     size_t call_count = expr->data.function_call.param_count;
     SourceRange range = expr->data.function_call.range;
-
     RegisterEntry* entry = register_get(reg, func_sv);
 
     if (!entry) {
@@ -236,7 +239,6 @@ void check_function_call_expr(Exprs* expr, Register* reg, CheckerErrList* errors
         Type expected_type = resolve_type(params[i].c_type, reg);
 
         if (arg_type.tag == Type_Void || expected_type.tag == Type_Void) continue;
-
         if (arg_type.tag != expected_type.tag) {
             checker_err_push(errors, (CheckerErr){
                 .tag = Err_Tag_VMV,
@@ -308,8 +310,8 @@ void check_method_call_expr(Exprs* expr, Register* reg, CheckerErrList* errors) 
     }
 
     FunctionMethod* matched = NULL;
-    for (size_t i = 0; i < class_entry->data.class.methods_count; i++) {
-        FunctionMethod* m = &class_entry->data.class.methods[i];
+    for (size_t i = 0; i < class_entry->data._class.methods_count; i++) {
+        FunctionMethod* m = &class_entry->data._class.methods[i];
         size_t mlen = m->name.end - m->name.start;
         if (mlen == method_sv.len && memcmp(m->name.start, method_sv.ptr, mlen) == 0) {
             matched = m;
@@ -359,6 +361,8 @@ void check_method_call_expr(Exprs* expr, Register* reg, CheckerErrList* errors) 
 }
 
 void check_struct_call_expr(Exprs* expr, Register* reg, CheckerErrList* errors) {
+    maybe_resolve_generic(expr->data.struct_calls.name, expr->data.struct_calls.generic_params_count, expr->data.struct_calls.generic_params_count, reg, errors);
+
     SourceRange name = expr->data.struct_calls.name;
     StringView name_sv = string_range(name);
     size_t arg_count = expr->data.struct_calls.param_count;
@@ -451,6 +455,8 @@ void check_struct_call_expr(Exprs* expr, Register* reg, CheckerErrList* errors) 
 }
 
 void check_class_call_expr(Exprs* expr, Register* reg, CheckerErrList* errors) {
+    maybe_resolve_generic(expr->data.class_calls.name, expr->data.function_call.generic_params_count, expr->data.function_call.generic_params_count,  reg, errors);
+
     SourceRange name = expr->data.class_calls.name;
     StringView name_sv = string_range(name);
     SourceRange range = expr->data.class_calls.range;
@@ -481,7 +487,7 @@ void check_class_call_expr(Exprs* expr, Register* reg, CheckerErrList* errors) {
     }
 
     size_t call_count = expr->data.class_calls.param_count;
-    size_t param_count = entry->data.class.methods_count;
+    size_t param_count = entry->data._class.methods_count;
 
     for (size_t i = 0; i < call_count; i++) {
         SourceRange arg_range = expr->data.class_calls.param[i].name;
@@ -498,6 +504,8 @@ void check_class_call_expr(Exprs* expr, Register* reg, CheckerErrList* errors) {
 }
 
 void check_enum_call_expr(Exprs* expr, Register* reg, CheckerErrList* errors) {
+    maybe_resolve_generic(expr->data.enum_calls.name, expr->data.enum_calls.generic_params_count, expr->data.enum_calls.generic_params_count, reg, errors);
+
     SourceRange name = expr->data.enum_calls.name;
     SourceRange field = expr->data.enum_calls.field;
     StringView name_sv = string_range(name);

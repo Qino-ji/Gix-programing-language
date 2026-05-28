@@ -25,6 +25,7 @@ bool range_eq(SourceRange r, const char* str);
 void resolve_operations(Exprs* operations, Register* reg, CheckerErrList* errors);
 const char* op_tag_to_str(LexerTokenTag tag);
 StringView type_tag_to_view(Type t);
+Type resolve_type_tree(SourceRange r, Type* tree, Register* reg);
 bool ranges_equal(SourceRange a, SourceRange b);
 bool range_eq_sv(SourceRange r, StringView sv);
 bool conds_equal(Exprs* a, Exprs* b);
@@ -32,8 +33,10 @@ bool conds_equal(Exprs* a, Exprs* b);
 bool is_always(Exprs* cond);
 bool is_conditionable(Type t);
 bool is_builtin_type(SourceRange name);
-bool is_valid_return_type(SourceRange r);
 bool is_tautolog(Exprs* cond);
+StringView sv(const char* s);
+Register register_new(Register* parent, IDCounter* counter, GenericRegistry* mono);
+void check_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors, SourceRange fn_return_type, Exprs* parent_cond, FuncBodyList* bodies);
 
 
 
@@ -623,12 +626,12 @@ void check_for_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
     for (size_t i = 0; i < body_count; i++) {
         if (stmt_references_var(&body[i], var_sv)) { var_used = true; break; }
     }
-    if (!var_used) {
-        checker_err_push(errors, (CheckerErr){
-            .tag = Err_Tag_ULV,
-            .data.ulv = { .range = var, .var_name = var_sv }
-        });
-    }
+    // if (!var_used) {
+    //    checker_err_push(errors, (CheckerErr){
+    //        .tag = Err_Tag_ULV,
+    //        .data.ulv = { .range = var, .var_name = var_sv }
+    //    });
+    // }
 }
 
 void check_struct_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
@@ -873,7 +876,7 @@ void check_function_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
         return;
     }
 
-    if (!is_valid_return_type(return_type)) {
+    if (!is_builtin_type(return_type)) {
         bool is_generic = false;
         for (size_t g = 0; g < generic_params_count; g++) {
             if (generic_param_used_in_type(generic_params[g], return_type)) { is_generic = true; break; }
@@ -983,12 +986,12 @@ void check_function_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
         for (size_t b = 0; b < body_count; b++) {
             if (stmt_references_var(&body[b], param_sv)) { used = true; break; }
         }
-        if (!used) {
-            checker_err_push(errors, (CheckerErr){
-                .tag = Err_Tag_ULV,
-                .data.ulv = { .range = param->name, .var_name = param_sv }
-            });
-        }
+    //    if (!used) {
+    //        checker_err_push(errors, (CheckerErr){
+    //            .tag = Err_Tag_ULV,
+    //           .data.ulv = { .range = param->name, .var_name = param_sv }
+    //        });
+    //    }
     }
 
     for (size_t g = 0; g < generic_params_count; g++) {
@@ -1012,18 +1015,18 @@ void check_function_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
 
 void check_class_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
     SourceRange name = stmt->data.classes.name;
-    Param* class_params = stmt->data.classes.class_params;
-    size_t class_params_count = stmt->data.classes.class_params_count;
     StructParam* fields = stmt->data.classes.fields;
-    size_t fields_count = stmt->data.classes.fields_count;
     FunctionMethod* methods = stmt->data.classes.methods;
+    size_t fields_count = stmt->data.classes.fields_count;
+    size_t class_params_count = stmt->data.classes.class_params_count;
+    size_t traits_count = stmt->data.classes.traits_count;
+    size_t generic_params_count = stmt->data.classes.generic_params_count;
     size_t methods_count = stmt->data.classes.methods_count;
     SourceRange parent = stmt->data.classes.parent;
-    SourceRange* traits = stmt->data.classes.traits;
-    size_t traits_count = stmt->data.classes.traits_count;
+    SourceRange* traits = stmt->data.classes.trait_bounds;
     SourceRange* generic_params = stmt->data.classes.generic_params;
-    size_t generic_params_count = stmt->data.classes.generic_params_count;
     SourceRange range = stmt->data.classes.range;
+    Param* class_params = stmt->data.classes.class_params;
 
     if (is_builtin_type(name)) {
         checker_err_push(errors, (CheckerErr){
@@ -1099,7 +1102,7 @@ void check_class_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
 
         for (size_t m = 0; m < trait_entry->data.trait.methods_count; m++) {
             TraitMethod* required = &trait_entry->data.trait.methods[m];
-            bool         implemented = false;
+            bool implemented = false;
 
             for (size_t j = 0; j < methods_count; j++) {
                 size_t rlen = required->name.end - required->name.start;
@@ -1124,6 +1127,7 @@ void check_class_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
         }
     }
 
+    
     for (size_t i = 0; i < fields_count; i++) {
         StructParam* field = &fields[i];
 
@@ -1192,6 +1196,7 @@ void check_class_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
         for (size_t j = 0; j < i; j++) {
             size_t alen = method->name.end - method->name.start;
             size_t blen = methods[j].name.end - methods[j].name.start;
+
             if (alen == blen && memcmp(method->name.start, methods[j].name.start, alen) == 0) {
                 checker_err_push(errors, (CheckerErr){
                     .tag = Err_Tag_DFN,
@@ -1204,6 +1209,33 @@ void check_class_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
                 break;
             }
         }
+
+        Register method_reg = register_new(reg, reg->counter, reg->mono);
+        Type self_type = (Type){ .tag = Type_Custom, .data.custom.name = name };
+
+        register_insert(&method_reg, sv("self"), (RegisterEntry){
+            .tag  = Reg_Var,
+            .name = NULL,
+            .type = self_type,
+            .data.var = { .type = self_type, .is_mut = true }
+        });
+
+        for (size_t p = 0; p < method->params_count; p++) {
+            Type t = resolve_type_tree(method->params[p].c_type, method->params[p].type_tree, reg);
+            register_insert(&method_reg, string_range(method->params[p].name), (RegisterEntry){
+                .tag  = Reg_Var,
+                .name = NULL,
+                .type = t,
+                .data.var = { .type = t, .is_mut = false }
+            });
+        }
+        CheckerErrList dummy = {0};
+        FuncBodyList dummy_bodies = {0};
+
+        populate_register(method->body, method->body_count, &method_reg, &dummy);
+
+        for (size_t b = 0; b < method->body_count; b++) check_stmt(&method->body[b], &method_reg, errors, method->return_type, NULL, &dummy_bodies);
+        register_free(&method_reg);
 
         if (!range_eq(method->return_type, "void") && method->return_type.start != method->return_type.end) {
             if (!body_has_return(method->body, method->body_count)) {
@@ -1235,10 +1267,8 @@ void check_class_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
 
     for (size_t g = 0; g < generic_params_count; g++) {
         bool used = false;
-        for (size_t i = 0; i < fields_count && !used; i++)
-            if (generic_param_used_in_type(generic_params[g], fields[i].c_type)) used = true;
-        for (size_t i = 0; i < class_params_count && !used; i++)
-            if (generic_param_used_in_type(generic_params[g], class_params[i].c_type)) used = true;
+        for (size_t i = 0; i < fields_count && !used; i++) if (generic_param_used_in_type(generic_params[g], fields[i].c_type)) used = true;
+        for (size_t i = 0; i < class_params_count && !used; i++) if (generic_param_used_in_type(generic_params[g], class_params[i].c_type)) used = true;
         if (!used) {
             checker_err_push(errors, (CheckerErr){
                 .tag = Err_Tag_GPU,
@@ -1292,7 +1322,7 @@ void check_trait_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
             }
         }
 
-        if (!is_valid_return_type(method->return_type) && !register_get(reg, string_range(method->return_type))) {
+        if (!is_builtin_type(method->return_type) && !register_get(reg, string_range(method->return_type))) {
             checker_err_push(errors, (CheckerErr){
                 .tag = Err_Tag_UFT,
                 .data.uft = {
@@ -1411,7 +1441,8 @@ void check_vars_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
         return;
     }
 
-    if (range_eq(ctype, "void")) {
+    Type resolved = resolve_type_tree(ctype, stmt->data.vars.type_tree, reg);
+    if (resolved.tag == Type_Void) {
         checker_err_push(errors, (CheckerErr){
             .tag = Err_Tag_VFT,
             .data.vft = {
@@ -1423,13 +1454,13 @@ void check_vars_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
         return;
     }
 
-    if (!is_builtin_type(ctype) && !register_get(reg, string_range(ctype))) {
+    if (resolved.tag == Type_Custom && !register_get(reg, string_range(resolved.data.custom.name))) {
         checker_err_push(errors, (CheckerErr){
             .tag = Err_Tag_UFT,
             .data.uft = {
                 .range      = range,
                 .field_name = string_range(name),
-                .type_name  = string_range(ctype),
+                .type_name  = string_range(resolved.data.custom.name),
             }
         });
     }
@@ -1448,7 +1479,8 @@ void check_lets_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
         return;
     }
 
-    if (range_eq(ctype, "void")) {
+    Type resolved = resolve_type_tree(ctype, stmt->data.lets.type_tree, reg);
+    if (resolved.tag == Type_Void) {
         checker_err_push(errors, (CheckerErr){
             .tag = Err_Tag_VFT,
             .data.vft = {
@@ -1460,13 +1492,13 @@ void check_lets_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
         return;
     }
 
-    if (!is_builtin_type(ctype) && !register_get(reg, string_range(ctype))) {
+    if (resolved.tag == Type_Custom && !register_get(reg, string_range(resolved.data.custom.name))) {
         checker_err_push(errors, (CheckerErr){
             .tag = Err_Tag_UFT,
             .data.uft = {
                 .range      = range,
                 .field_name = string_range(name),
-                .type_name  = string_range(ctype),
+                .type_name  = string_range(resolved.data.custom.name),
             }
         });
     }
@@ -1485,7 +1517,8 @@ void check_consts_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
         return;
     }
 
-    if (range_eq(ctype, "void")) {
+    Type resolved = resolve_type_tree(ctype, stmt->data.consts.type_tree, reg);
+    if (resolved.tag == Type_Void) {
         checker_err_push(errors, (CheckerErr){
             .tag = Err_Tag_VFT,
             .data.vft = {
@@ -1497,13 +1530,13 @@ void check_consts_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
         return;
     }
 
-    if (!is_builtin_type(ctype) && !register_get(reg, string_range(ctype))) {
+    if (resolved.tag == Type_Custom && !register_get(reg, string_range(resolved.data.custom.name))) {
         checker_err_push(errors, (CheckerErr){
             .tag = Err_Tag_UFT,
             .data.uft = {
                 .range      = range,
                 .field_name = string_range(name),
-                .type_name  = string_range(ctype),
+                .type_name  = string_range(resolved.data.custom.name),
             }
         });
     }
@@ -1544,7 +1577,8 @@ void check_locals_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
         return;
     }
 
-    if (range_eq(ctype, "void")) {
+    Type resolved = resolve_type_tree(ctype, stmt->data.locals.type_tree, reg);
+    if (resolved.tag == Type_Void) {
         checker_err_push(errors, (CheckerErr){
             .tag = Err_Tag_VFT,
             .data.vft = {
@@ -1556,13 +1590,13 @@ void check_locals_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
         return;
     }
 
-    if (!is_builtin_type(ctype) && !register_get(reg, string_range(ctype))) {
+    if (resolved.tag == Type_Custom && !register_get(reg, string_range(resolved.data.custom.name))) {
         checker_err_push(errors, (CheckerErr){
             .tag = Err_Tag_UFT,
             .data.uft = {
                 .range = range,
                 .field_name = string_range(name),
-                .type_name = string_range(ctype),
+                .type_name = string_range(resolved.data.custom.name),
             }
         });
     }
@@ -1657,8 +1691,8 @@ void resolve_operations(Exprs* operations, Register* reg, CheckerErrList* errors
     }
 
     FunctionMethod* matched = NULL;
-    for (size_t i = 0; i < class_entry->data.class.methods_count; i++) {
-        FunctionMethod* m = &class_entry->data.class.methods[i];
+    for (size_t i = 0; i < class_entry->data._class.methods_count; i++) {
+        FunctionMethod* m = &class_entry->data._class.methods[i];
         if (m->operation.function.start != NULL && m->operation.op == op_tag) { matched = m; break; }
     }
 
@@ -1705,93 +1739,42 @@ void resolve_operations(Exprs* operations, Register* reg, CheckerErrList* errors
     }
 }
 
-void resolve_generic_call(Exprs* call, Register* reg, GenericRegistry* greg, CheckerErrList* errors) {
-    SourceRange func_name = call->data.function_call.name;
-    StringView func_name_sv = string_range(func_name);
-    size_t params_count = call->data.function_call.param_count;
-    GenericArg* args = malloc(params_count * sizeof(GenericArg));
-
-    for (size_t i = 0; i < params_count; i++) {
-        SourceRange param_name = call->data.function_call.param[i].name;
-        RegisterEntry* entry = register_get(reg, string_range(param_name));
-
-        if (!entry) {
-            checker_err_push(errors, (CheckerErr){
-                .tag = Err_Tag_VSF,
-                .data.vsf = { .range = param_name, .var_name = string_range(param_name) }
-            });
-            free(args);
-            return;
-        }
-
-        args[i] = (GenericArg){
-            .type_name = type_tag_to_view(entry->type),
-            .type = entry->type
-        };
-    }
-
-    khint_t existing_it = generic_instance_table_get(greg->table, func_name_sv);
-    bool has_matching = existing_it != kh_end(greg->table) && kh_val(greg->table, existing_it).args_count > 0 && kh_val(greg->table, existing_it).args[0].type.tag == args[0].type.tag;
-
-    if (has_matching) { free(args); return; }
-
-    GenericInstance inst = {
-        .func_name = func_name_sv,
-        .args = args,
-        .args_count = params_count,
-        .return_type = args[0].type,
-        .params = NULL,
-        .params_count = 0,
-    };
-
-    int absent = 0;
-    khint_t it = generic_instance_table_put(greg->table, func_name_sv, &absent);
-    kh_val(greg->table, it) = inst;
-}
-
 void check_extern_stmt(Stmts* stmt, Register* reg, CheckerErrList* errors) {
-    ExternBlock* block = &stmt->data.externs.block;
-    SourceRange range = block->range;
+    ExternFunction* funcs = stmt->data.extern_.funcs;
+    size_t funcs_count = stmt->data.extern_.funcs_count;
+    SourceRange range = stmt->data.extern_.abi;
 
-    for (size_t i = 0; i < block->funcs_count; i++) {
-        ExternFunction* fn = &block->funcs[i];
+    for (size_t i = 0; i < funcs_count; i++) {
+        ExternFunction* fn = &funcs[i];
 
         for (size_t j = 0; j < fn->params_count; j++) {
             Param* p = &fn->params[j];
+            Type resolved = resolve_type_tree(p->c_type, p->type_tree, reg);
 
-            if (range_eq(p->c_type, "void")) {
+            if (resolved.tag == Type_Void) {
                 checker_err_push(errors, (CheckerErr){
                     .tag = Err_Tag_VFT,
-                    .data.vft = {
-                        .range      = range,
-                        .field_name = string_range(p->name),
-                        .type_name  = string_range(fn->name),
-                    }
+                    .data.vft = { .range = range, .field_name = string_range(p->name), .type_name = string_range(fn->name) }
                 });
             }
-
-            if (!is_builtin_type(p->c_type) && !register_get(reg, string_range(p->c_type))) {
+            if (resolved.tag == Type_Custom && !register_get(reg, string_range(resolved.data.custom.name))) {
                 checker_err_push(errors, (CheckerErr){
                     .tag = Err_Tag_UFT,
-                    .data.uft = {
-                        .range = range,
-                        .field_name = string_range(p->name),
-                        .type_name  = string_range(p->c_type),
-                    }
+                    .data.uft = { .range = range, .field_name = string_range(p->name), .type_name = string_range(resolved.data.custom.name) }
                 });
             }
         }
 
-        if (!is_valid_return_type(fn->return_type) && !register_get(reg, string_range(fn->return_type))) {
+        Type ret_resolved = resolve_type_tree(fn->return_type, fn->return_type_tree, reg);
+        if (ret_resolved.tag == Type_Custom && !register_get(reg, string_range(ret_resolved.data.custom.name))) {
             checker_err_push(errors, (CheckerErr){
                 .tag = Err_Tag_UFT,
                 .data.uft = {
-                    .range = range,
+                    .range      = range,
                     .field_name = string_range(fn->name),
-                    .type_name  = string_range(fn->return_type),
+                    .type_name  = string_range(ret_resolved.data.custom.name),
                 }
             });
         }
     }
 }
-

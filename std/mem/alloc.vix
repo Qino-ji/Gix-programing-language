@@ -1,16 +1,62 @@
-public module Alloc
-	trait Alloc
-		func alloc_mem(size: int): ptr[void]
-		func realloc_mem(target: (int, str), ptr: ptr[void], new_size: int): ptr[void]    
-		func dealloc_mem(ptr: ptr[void]): void
+@ffi("kernel32.dll")
+extern "C"
+    func VirtualAlloc(addr: *int8, size: int64, types: int32, protect: int32): *uint32
+    func VirtualFree(addr: *int8, size: int64, types: int32): int32
+    func ExitProcess(uExitCode: uint32): void
+
+    func GetProcessHeap(): *int8
+    func HeapAlloc(hHeap: *int8, dwFlags: int32, dwBytes: int64): *int8
+    func HeapReAlloc(hHeap: *int8, dwFlags: int32, lpMem: *int8, dwBytes: int64): *int8
+    func HeapFree(hHeap: *int8, dwFlags: int32, lpMem: *int8): int32
+end
+
+func exit(c: int): void
+	ExitProcess(c)
+end
+
+func malloc(size: int64): *int8
+    var heap: *int8 = GetProcessHeap()
+    return HeapAlloc(heap, 0x08, size)
+end
+
+func free(ptr: *int8, size: int64): void
+    var heap: *int8 = GetProcessHeap()
+    HeapFree(heap, 0, ptr)
+end
+
+func realloc(ptr: *int8, new_size: int64): *int8
+    var heap: *int8 = GetProcessHeap()
+
+    if heap == null then
+        exit(1)
+    end
+
+    var new_ptr: *int8 = HeapReAlloc(heap, 0x08, ptr, new_size)
+
+    return new_ptr
+end
+
+trait Alloc:
+	func alloc_mem(size: int): *void
+	func realloc_mem(target: (int, str), ptr: *void, new_size: int): *void    
+	func dealloc_mem(ptr: *void): void
+end
+
+func is_null(ptr: *int): bool
+	if ptr == null then
+		return true
 	end
 
-	public func alloc_mem(size: int): ptr[void]
+	return false
+end
+
+class Alloc()
+	public func alloc_mem(size: int): *void
 		if size == 0 then
 			return malloc(1 as uint64)
 		end
 
-		var ptr: ptr[void] = malloc(size)
+		var ptr: *void = malloc(size)
 
 		if ptr == 0 then
 			exit(1)
@@ -19,13 +65,13 @@ public module Alloc
 		return ptr
 	end
 
-	public func realloc_mem(target: (int, str), ptr: ptr[void], new_size: int): ptr[void]
+	public func realloc_mem(self, target: (int, str), ptr: *void, new_size: int): *void
 		if new_size == 0 then
 			exit(1)
 		end
 
 		if is_null(ptr) then
-			var new_ptr: ptr[void] = alloc_mem(new_size)
+			var new_ptr: *void = self.alloc_mem(new_size)
 
 			if is_null(new_ptr) then
 				exit(1)
@@ -34,7 +80,7 @@ public module Alloc
 			return new_ptr
 		end
 
-		var new_ptr: ptr[void] = realloc(ptr, new_size as uint64)
+		var new_ptr: *void = realloc(ptr, new_size as uint64)
 
 		if is_null(new_ptr) then
 			exit(1)
@@ -43,17 +89,11 @@ public module Alloc
 		return new_ptr
 	end
 
-	public func dealloc_mem(ptr: ptr[void]): void
+	public func dealloc_mem(ptr: *void): void
 		if is_null(ptr) then
 			return
 		end
 
-		free(ptr)
-	end
-end
-
-public module Free
-	public unsafe func free_mem(ptr: ptr[void]): void
 		free(ptr)
 	end
 end

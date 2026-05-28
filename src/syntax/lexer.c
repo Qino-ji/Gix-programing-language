@@ -216,7 +216,7 @@ static void lexer_words(Lexer* self) {
     else if (strcmp(word, "var")      == 0) self->top.tag = Vars;
     else if (strcmp(word, "const")    == 0) self->top.tag = Consts;
     else if (strcmp(word, "global")    == 0) self->top.tag = Locals;
-    else if (strcmp(word, "pub")      == 0) self->top.tag = Publics;
+    else if (strcmp(word, "public")      == 0) self->top.tag = Publics;
     else if (strcmp(word, "unsafe")   == 0) self->top.tag = Unsafes;
     else if (strcmp(word, "self")     == 0) self->top.tag = Selfs;
     else if (strcmp(word, "as")       == 0) self->top.tag = Ass;
@@ -236,21 +236,33 @@ static void lexer_words(Lexer* self) {
     else if (strcmp(word, "module") == 0) self->top.tag =   Modules;
     else if (strcmp(word, "import") == 0) self->top.tag =   Imports;
     else if (strcmp(word, "from") == 0) self->top.tag   =   Froms;
-    else if (strcmp(word, "int")      == 0) { self->top.tag = Ints; self->top.data.value_int = 32; }
-    else if (strcmp(word, "int8")     == 0) { self->top.tag = Ints; self->top.data.value_int = 8; }
-    else if (strcmp(word, "int16")    == 0) { self->top.tag = Ints; self->top.data.value_int = 16; }
-    else if (strcmp(word, "int32")    == 0) { self->top.tag = Ints; self->top.data.value_int = 32; }
-    else if (strcmp(word, "int64")    == 0) { self->top.tag = Ints; self->top.data.value_int = 64; }
+    else if (strcmp(word, "int")    == 0) { self->top.tag = Ints; self->top.data.value_int = 32; self->top.is_unsigned = false; }
+    else if (strcmp(word, "int8")   == 0) { self->top.tag = Ints; self->top.data.value_int = 8;  self->top.is_unsigned = false; }
+    else if (strcmp(word, "int16")  == 0) { self->top.tag = Ints; self->top.data.value_int = 16; self->top.is_unsigned = false; }
+    else if (strcmp(word, "int32")  == 0) { self->top.tag = Ints; self->top.data.value_int = 32; self->top.is_unsigned = false; }
+    else if (strcmp(word, "int64")  == 0) { self->top.tag = Ints; self->top.data.value_int = 64; self->top.is_unsigned = false; }
+    else if (strcmp(word, "uint")   == 0) { self->top.tag = Ints; self->top.data.value_int = 32; self->top.is_unsigned = true;  }
+    else if (strcmp(word, "uint8")  == 0) { self->top.tag = Ints; self->top.data.value_int = 8;  self->top.is_unsigned = true;  }
+    else if (strcmp(word, "uint16") == 0) { self->top.tag = Ints; self->top.data.value_int = 16; self->top.is_unsigned = true;  }
+    else if (strcmp(word, "uint32") == 0) { self->top.tag = Ints; self->top.data.value_int = 32; self->top.is_unsigned = true;  }
+    else if (strcmp(word, "uint64") == 0) { self->top.tag = Ints; self->top.data.value_int = 64; self->top.is_unsigned = true;  }
     else if (strcmp(word, "float")    == 0) { self->top.tag = Floats; self->top.data.value_int = 32; }
     else if (strcmp(word, "float32")  == 0) { self->top.tag = Floats; self->top.data.value_int = 32; }
     else if (strcmp(word, "float64")  == 0) { self->top.tag = Floats; self->top.data.value_int = 64; }
     else if (strcmp(word, "char")     == 0) { self->top.tag = Chars; self->top.data.value_int = 8; }
-    else if (strcmp(word, "string")   == 0) { self->top.tag = Strings; self->top.data.value_int = 0; }
+    else if (strcmp(word, "str")   == 0) { self->top.tag = Strings; self->top.data.value_int = 0; }
+    else if (strcmp(word, "null") == 0) self->top.tag = Nulls;
+    else if (strcmp(word, "void") == 0) self->top.tag = Voids;
     else if (strcmp(word, "Relaxed") == 0) { self->top.tag = Orderings; self->top.data.value_int = Ordering_Relaxed; }
     else if (strcmp(word, "Acquire") == 0) { self->top.tag = Orderings; self->top.data.value_int = Ordering_Acquire; }
     else if (strcmp(word, "Release") == 0) { self->top.tag = Orderings; self->top.data.value_int = Ordering_Release; }
     else if (strcmp(word, "AcqRel")  == 0) { self->top.tag = Orderings; self->top.data.value_int = Ordering_AcqRel;  }
     else if (strcmp(word, "SeqCst")  == 0) { self->top.tag = Orderings; self->top.data.value_int = Ordering_SeqCst;  }
+
+    // build in functions:
+    else if (strcmp(word, "size_of") == 0) self->top.tag = Fn_Sizes;
+    else if (strcmp(word, "type_of") == 0) self->top.tag = Fn_Types;
+    else if (strcmp(word, "align_of") == 0) self->top.tag = Fn_Align;
 
     else if (strcmp(word, "load")             == 0) { self->top.tag = Orderings; self->top.data.value_int = AtomicOp_Load;            }
     else if (strcmp(word, "store")            == 0) { self->top.tag = Orderings; self->top.data.value_int = AtomicOp_Store;           }
