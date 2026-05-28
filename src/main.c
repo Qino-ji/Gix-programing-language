@@ -153,6 +153,10 @@ void print_statement(Stmts stmt, int depth) {
     switch (stmt.tag) {
             case Stmt_Externs: {
 
+<<<<<<< HEAD
+=======
+// After
+>>>>>>> bfe1a5d (Commit 100 - Update 9 codegen update)
 printf("EXTERN abi=\"%.*s\" ffi=\"%.*s\" funcs_count=%zu\n",
     (int)(stmt.data.extern_.abi.end - stmt.data.extern_.abi.start), stmt.data.extern_.abi.start,
     (int)(stmt.data.extern_.ffi.end - stmt.data.extern_.ffi.start), stmt.data.extern_.ffi.start,
@@ -162,6 +166,7 @@ if (!stmt.data.extern_.funcs) { printf("  [funcs is NULL]\n"); break; }
 
 for (size_t i = 0; i < stmt.data.extern_.funcs_count; i++) {
     ExternFunction* fn = &stmt.data.extern_.funcs[i];
+<<<<<<< HEAD
     
 
         for (int d = 0; d < depth + 1; d++) printf("  ");
@@ -171,6 +176,17 @@ for (size_t i = 0; i < stmt.data.extern_.funcs_count; i++) {
             printf("EXTERN_FUNC: [bad name range]\n"); continue;
         }
         
+=======
+    // rest stays the same, just remove block-> references
+
+        for (int d = 0; d < depth + 1; d++) printf("  ");
+
+        // guard name range
+        if (!fn->name.start || !fn->name.end || fn->name.end < fn->name.start) {
+            printf("EXTERN_FUNC: [bad name range]\n"); continue;
+        }
+        // guard return_type range
+>>>>>>> bfe1a5d (Commit 100 - Update 9 codegen update)
         const char* ret_start = fn->return_type.start;
         const char* ret_end   = fn->return_type.end;
         if (!ret_start || !ret_end || ret_end < ret_start) {
@@ -456,13 +472,21 @@ int main(int argc, char **argv) {
 
     FuncBodyList bodies = register_body(program.data, program.len, &global_reg, &errors);
     type_infer_pass(program.data, program.len, &global_reg);  
+<<<<<<< HEAD
     
+=======
+    // Debug: Print Register
+>>>>>>> bfe1a5d (Commit 100 - Update 9 codegen update)
     printf("\n=== REGISTER ===\n");
     printf("Register table size: %zu\n", kh_size(global_reg.table));
 
 IR_Module ir_mod = lower_module(project_name, program.data, program.len, &global_reg);
 
+<<<<<<< HEAD
     
+=======
+    // Debug: Print IR
+>>>>>>> bfe1a5d (Commit 100 - Update 9 codegen update)
     printf("\n=== IR MODULE ===\n");
     printf("Module name: %s\n", ir_mod.name);
     printf("Definitions count: %zu\n", ir_mod.defs_count);
