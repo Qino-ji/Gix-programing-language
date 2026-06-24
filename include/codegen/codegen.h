@@ -1,148 +1,164 @@
 #ifndef VIX_CODEGEN_H
 #define VIX_CODEGEN_H
 
-#include "import.h"
-#include "ir.h"
-
-#define CG_MAX 8192
-
-#ifdef __cplusplus
 #include <llvm-c/Core.h>
-#include <llvm-c/Analysis.h>
 #include <llvm-c/Target.h>
-#include <llvm-c/TargetMachine.h>
 
+#include "ast.h"
+#include "ir.h"
+#include "import.h"
+#include "symbol_table.h"
 
-typedef ARR(LLVMValueRef) RefArr;
-typedef ARR(LLVMTypeRef)  TypeRef;
-
+extern LLVMContextRef     llvm_ctx;
+extern LLVMModuleRef      llvm_mod;
+extern LLVMBuilderRef     llvm_builder;
+extern const char *codegen_source;
+extern LLVMTypeRef str_type;
 
 typedef struct {
-    LLVMContextRef ctx;
-    LLVMModuleRef  mod;
-    LLVMBuilderRef builder;
+    char* name;
+    EntityID eid;
+    LLVMTypeRef return_type;
+    LLVMTypeRef *params;
+    size_t params_count;
+    IR_Stmt *body;
+    size_t body_count;
+    bool is_pub;
+    bool is_unsafe;
+    LexerTokenTag operation_op;
+    CallingConv   cc;
+    const char   **param_names;
+} Codegen_FuncDef;
 
-    RefArr vars;
-    RefArr funcs;
-    RefArr methods;
-
-    TypeRef func_types;
-    TypeRef method_types;
-    TypeRef types;
-
-    LLVMValueRef cur_func;
-    LLVMTypeRef  cur_ret_type;
-    LLVMBasicBlockRef entry_bb;
-    IR_Module *ir_mod;
-
-    uint32_t next_eid;
-} CG;
-
-#else
-typedef struct CG CG;
-typedef struct LLVMOpaqueValue* LLVMValueRef;
-typedef struct LLVMOpaqueType* LLVMTypeRef;
-typedef struct LLVMOpaqueBasicBlock* LLVMBasicBlockRef;
-typedef int LLVMAtomicOrdering;
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-CG *cg_create(const char *module_name);
-
-int cg_verify(CG *cg);
-int cg_emit_obj(CG *cg, const char *project_name, const char *source_file);
-int cg_link_exe(const char *project_name, const char *source_file);
-int cg_field_index(CG *cg, LLVMTypeRef sty, SourceRange field_name);
-
-LLVMValueRef cg_expr(CG *cg, IR_Expr *e);
-LLVMValueRef cg_alloca(CG *cg, LLVMTypeRef ty, const char *name);
-LLVMValueRef cg_expr_literal(CG *cg, IR_Expr *e);
-LLVMValueRef cg_expr_literal_bool(CG *cg, IR_Expr *e);
-LLVMValueRef cg_expr_literal_char(CG *cg, IR_Expr *e);
-LLVMValueRef cg_expr_literal_int(CG *cg, IR_Expr *e);
-LLVMValueRef cg_expr_literal_float(CG *cg, IR_Expr *e);
-LLVMValueRef cg_expr_literal_str(CG *cg, IR_Expr *e);
-LLVMValueRef cg_expr_varref(CG *cg, IR_Expr *e);
-LLVMValueRef cg_expr_binop(CG *cg, IR_Expr *e);
-LLVMValueRef cg_expr_call(CG *cg, IR_Expr *e);
-LLVMValueRef cg_expr_method_call(CG *cg, IR_Expr *e);
-LLVMValueRef cg_expr_make_struct(CG *cg, IR_Expr *e);
-LLVMValueRef cg_expr_make_class(CG *cg, IR_Expr *e);
-LLVMValueRef cg_expr_make_enum(CG *cg, IR_Expr *e);
-LLVMValueRef cg_expr_field(CG *cg, IR_Expr *e);
-LLVMValueRef cg_expr_index(CG *cg, IR_Expr *e);
-LLVMValueRef cg_expr_cast(CG *cg, IR_Expr *e);
-LLVMValueRef cg_expr_deref(CG *cg, IR_Expr *e);
-LLVMValueRef cg_assign_compute_rhs(CG *cg, IR_Expr *tgt, LLVMValueRef rhs, LexerTokenTag op);
-LLVMValueRef cg_var_get(CG *cg, EntityID eid);
-LLVMValueRef cg_func_get(CG *cg, EntityID eid);
-LLVMValueRef cg_method_get(CG *cg, EntityID eid);
-LLVMTypeRef cg_type_int(CG *cg, Type t);
-LLVMTypeRef cg_type_float(CG *cg, Type t);
-LLVMTypeRef cg_type_ptr(CG *cg, Type t);
-LLVMTypeRef cg_type_custom(CG *cg, Type t);
-LLVMTypeRef  cg_ftype_get(CG *cg, EntityID eid);
-LLVMTypeRef cg_type(CG *cg, Type t);
-LLVMTypeRef cg_mtype_get(CG *cg, EntityID eid);
-
-static void cg_module_declare_vtable(CG* cg, IR_Module* mod);
-static void cg_build_func(CG *cg, IR_FuncDef *def, uint32_t eid, bool is_method);
-
-void cg_stmt_vardecl(CG *cg, IR_Stmt *s);
-void cg_stmt_local_decl(CG *cg, IR_Stmt *s);
-void cg_stmt_ssa_temp(CG *cg, IR_Stmt *s);
-void cg_stmt_assign(CG *cg, IR_Stmt *s);
-void cg_stmt_return(CG *cg, IR_Stmt *s);
-void cg_stmt_if(CG *cg, IR_Stmt *s);
-void cg_stmt_while(CG *cg, IR_Stmt *s);
-void cg_stmt_for(CG *cg, IR_Stmt *s);
-void cg_stmt_match(CG *cg, IR_Stmt *s);
-void cg_stmt_atomic_op(CG *cg, IR_Stmt *s);
-void cg_build_body(CG *cg, IR_Stmt *body, size_t count);
-void cg_var_set(CG *cg, EntityID eid, LLVMValueRef v);
-void cg_assign_to_varref(CG *cg, IR_Expr *tgt, LLVMValueRef rhs);
-void cg_assign_to_deref(CG *cg, IR_Expr *tgt, LLVMValueRef rhs);
-void cg_assign_to_field(CG *cg, IR_Expr *tgt, LLVMValueRef rhs);
-void cg_assign_to_index(CG *cg, IR_Expr *tgt, LLVMValueRef rhs);
-void cg_stmt_atomic_load(CG *cg, IR_Stmt *s, LLVMValueRef target_ptr, LLVMAtomicOrdering ord);
-void cg_stmt_atomic_store(CG *cg, IR_Stmt *s, LLVMValueRef target_ptr, LLVMAtomicOrdering ord);
-void cg_stmt_atomic_cmpxchg(CG *cg, IR_Stmt *s, LLVMValueRef target_ptr, LLVMAtomicOrdering ord, LLVMAtomicOrdering ord2);
-void cg_declare_func(CG *cg, IR_FuncDef *def, uint32_t eid);
-void cg_register_struct(CG *cg, SourceRange name, uint32_t eid, IR_FieldDef *fields, size_t nfields);
-void cg_module_register_types(CG *cg, IR_Module *mod);
-void cg_module_declare_funcs(CG *cg, IR_Module *mod);
-void cg_module_declare_extern(CG *cg, IR_Def *d);
-void cg_module_build_funcs(CG *cg, IR_Module *mod);
-void cg_stmt(CG *cg, IR_Stmt *s);
-void cg_destroy(CG *cg);
-void cg_module(CG *cg, IR_Module *mod);
-void cg_dump(CG *cg);
-LLVMAtomicOrdering cg_ordering(OrderingTag o);
+typedef struct {
+    const char  *name;
+    LLVMTypeRef *fields;
+    size_t       fields_count;
+} Codegen_Struct;
 
 
 
-#ifdef __cplusplus
-}
-#endif
-
-#ifdef __cplusplus
-inline char *sr_cstr_inline(SourceRange r, char *buf, size_t sz) {
-    size_t len = (size_t)(r.end - r.start);
-    if (len >= sz) len = sz - 1;
-    memcpy(buf, r.start, len);
+char *null_terminated(SourceRange s) {
+    size_t len = s.end - s.start;
+    char *buf = malloc(len + 1);
+    memcpy(buf, s.start, len);
     buf[len] = '\0';
     return buf;
 }
 
-#ifdef __cplusplus
-inline char *sr_cstr(SourceRange r, char *buf, size_t sz) {
-    return sr_cstr_inline(r, buf, sz);
+typedef struct { const char *name; LLVMTypeRef type; LLVMValueRef init; } Codegen_Var;
+typedef struct { const char *name; LLVMTypeRef type; LLVMValueRef init; } Codegen_Let;
+typedef struct { const char *name; LLVMTypeRef type; LLVMValueRef init; } Codegen_Const;
+typedef struct { const char *name; LLVMTypeRef *params; const char **param_names; uint32_t params_count; LLVMTypeRef return_type; } Codegen_Extern;
+typedef struct { const char *name; size_t variants_count; } Codegen_Enum;
+
+static LLVMModuleRef module;
+static LLVMBuilderRef builder;
+
+LLVMContextRef     llvm_ctx;
+LLVMModuleRef      llvm_mod;
+LLVMBuilderRef     llvm_builder;
+const char *codegen_source = NULL;
+
+LLVMTypeRef str_type;
+
+void codegen_new(const char *filename, const char *source) {
+    llvm_ctx = LLVMContextCreate();
+    llvm_mod = LLVMModuleCreateWithNameInContext(filename, llvm_ctx);
+    llvm_builder = LLVMCreateBuilderInContext(llvm_ctx);
+    codegen_source = source;
+
+    LLVMTypeRef str_field_types[] = { LLVMPointerType(LLVMInt8TypeInContext(llvm_ctx), 0), LLVMInt64TypeInContext(llvm_ctx) };
+    str_type = LLVMStructCreateNamed(llvm_ctx, "str");
+    LLVMStructSetBody(str_type, str_field_types, 2, 0);
+
+    symbol_table_init();
 }
-#endif
+
+LLVMTypeRef set_type(Type t) {
+    switch (t.tag) {
+        case Type_Int:   return LLVMIntTypeInContext(llvm_ctx, t.data.int_t.bits);
+        case Type_Float: return t.data.float_t.bits == 64 ? LLVMDoubleTypeInContext(llvm_ctx) : LLVMFloatTypeInContext(llvm_ctx);
+        case Type_Bool:  return LLVMInt1TypeInContext(llvm_ctx);
+        case Type_Char:  return LLVMInt8TypeInContext(llvm_ctx);
+        case Type_Str: {
+            LLVMTypeRef field_types[] = { LLVMPointerType(LLVMInt8TypeInContext(llvm_ctx), 0), LLVMInt64TypeInContext(llvm_ctx), };
+            return LLVMStructTypeInContext(llvm_ctx, field_types, 2, 0);
+        }
+        case Type_Void:  return LLVMVoidTypeInContext(llvm_ctx);
+        case Type_Ptr:
+        case Type_RawPtr: return LLVMPointerType(LLVMInt8TypeInContext(llvm_ctx), 0);
+        case Type_Tuple: {
+            LLVMTypeRef *elems = malloc(sizeof(LLVMTypeRef) * t.data.tuple.elems_count);
+            for (size_t i = 0; i < t.data.tuple.elems_count; i++) elems[i] = set_type(t.data.tuple.elems[i]);
+            LLVMTypeRef result = LLVMStructTypeInContext(llvm_ctx, elems, t.data.tuple.elems_count, 0);
+            free(elems);
+            return result;
+        }
+
+        case Type_Custom:  return LLVMGetTypeByName2(llvm_ctx, null_terminated(t.data.custom.name));
+        default: return LLVMInt32TypeInContext(llvm_ctx);
+    }
+}
+
+
+LLVMTypeRef *set_fields(IR_FieldDef *fields, size_t count) {
+    ARR(LLVMTypeRef) field_types = {0};
+
+    for (size_t i = 0; i < count; i++) {
+        ARR_PUSH(field_types, set_type(fields[i].ty));
+    }
+
+    return field_types.data;
+}
+
+LLVMTypeRef *set_param(IR_Param *param, uint32_t count) {
+    ARR(LLVMTypeRef) llvm_param_types = {0};
+
+    for (size_t i = 0; i < count; i++) {
+        ARR_PUSH(llvm_param_types, set_type(param[i].ty));
+    }
+
+    return llvm_param_types.data;
+}
+
+const char **set_param_names(IR_Param *param, uint32_t count) {
+    ARR(const char*) names = {0};
+
+    for (size_t i = 0; i < count; i++) {
+        ARR_PUSH(names, null_terminated(param[i].name));
+    }
+
+    return names.data;
+}
+
+LLVMValueRef codegen_expr_literal(Register *reg, IR_Expr *expr);
+LLVMValueRef codegen_expr_cast(Register *reg, IR_Expr *expr);
+LLVMValueRef codegen_generate_str(Register *reg, IR_Expr *expr);
+
+LLVMValueRef codegen_expr_field(Register *reg, IR_Expr *expr);
+LLVMValueRef codegen_expr_addr(Register *reg, IR_Expr *expr);
+
+LLVMValueRef codegen_expr_binop(Register *reg, IR_Expr *expr);
+LLVMValueRef codegen_expr_unop(Register *reg, IR_Expr *expr);
+
+
+LLVMValueRef codegen_expr_call(Register *reg, IR_Expr *expr);
+LLVMValueRef codegen_expr_tuple(Register *reg, IR_Expr *expr);
+LLVMValueRef codegen_expr_tupleindex(Register *reg, IR_Expr *expr);
+LLVMValueRef codegen_expr_index(Register *reg, IR_Expr *expr);
+
+LLVMValueRef codegen_expr_var(Register *reg, IR_Expr *expr);
+LLVMValueRef codegen_expr_method(Register *reg, IR_Expr *expr);
+
+
+void codegen_generate_function(Register *reg, uint32_t *param_ids, Codegen_FuncDef fn);
+LLVMValueRef codegen_expr(Register *reg, IR_Expr *expr);
+void codegen_stmts(Register *reg, IR_Stmt *stmts, size_t count);
+
+void codegen_generate_var(uint32_t id, Codegen_Var v);
+void codegen_generate_let(uint32_t id, Codegen_Let l);
+void codegen_generate_const(uint32_t id, Codegen_Const c);
+
 
 #endif
-
-#endif // VIX_CODEGEN_H 

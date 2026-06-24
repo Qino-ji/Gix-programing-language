@@ -115,6 +115,8 @@ typedef enum {
     Fn_Sizes,
     Fn_Align,
     TypeToken,
+    Bools,
+    Ellipsis,
     Identifier,
 } LexerTokenTag;
     
@@ -363,6 +365,8 @@ typedef enum {
 
 typedef enum {
     Expr_Function,
+    Expr_Idx,
+    Expr_Array,
     Expr_Class_Calls,
     Expr_Struct_Calls,
     Expr_Enum_Calls,
@@ -374,10 +378,13 @@ typedef enum {
     Expr_Unary,
     Expr_Cast,
     Expr_Null,
-    Expr_Self,   
+    Expr_Self,
     Expr_Builtins,
+    Expr_Field,
+    Expr_AddrOf,
 } ExprsTag;
 
+typedef ARR(Exprs) ExprsArr;
 
 struct Exprs {
     ExprsTag tag;
@@ -395,15 +402,18 @@ struct Exprs {
         struct { Exprs* expr; Type* ty; SourceRange range; } cast;
         struct { SourceRange range; SourceRange target; Param* args; size_t args_count; bool is_call; } self_access;
         struct { BuiltinFnTag tag; Type* ty; } builtins;
+        struct { Exprs* base; Exprs* index; SourceRange range; } idx;
+        struct { Exprs* elems; size_t elems_count; } array;
+        struct { SourceRange object; SourceRange field; SourceRange range; } field_access;
     } data;
 };
 
 typedef struct Param {
     SourceRange name;
     SourceRange c_type;
-    Type*       type_tree;
-    VarMode     mode;
-    Exprs       value;
+    Type* type_tree;
+    VarMode mode;
+    Exprs value;
 };
 
 typedef struct {

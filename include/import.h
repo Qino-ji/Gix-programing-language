@@ -19,7 +19,7 @@
 #include <sys/stat.h>
 
 #ifdef _WIN32
-#include <io.h>
+#include <io.h>t
 #include <process.h>
 #include <windows.h>
 #include <direct.h>
@@ -116,7 +116,6 @@ static inline char* strndup(const char* s, size_t n) {
     return new_str;
 }
 #endif
-
 
 #define ARR(T) struct { T* data; size_t len; size_t cap; }
 

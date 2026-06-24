@@ -39,16 +39,6 @@ public func length[T](s: T[]): usize
     return s.len
 end
 
-public func length[T: Char](s: ptr[char]): usize
-    var len: usize = 0
-
-    for ch in s.chars() do
-        len = len + 1
-    end
-
-    return len
-end
-
 public func length[T: Number](n: T): usize
     if n == 0 do return 1 end
 

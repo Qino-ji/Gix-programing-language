@@ -1,0 +1,25 @@
+public module Io
+    @ffi("kernel32.dll")
+    extern "C"
+        func GetStdHandle(nStdHandle: int32): *int8
+        func WriteFile(hFile: *int8, lpBuffer: *int8, nNumberOfBytesToWrite: int32, lpNumberOfBytesWritten: *int32, lpOverlapped: *int8): int32
+    end
+
+    func strlen(s: *int8): int32
+        var i: int32 = 0
+        while s[i] != 0 do
+            i = i + 1
+        end
+        return i
+    end
+
+    func print(s: *int8): void
+        var stdout: *int8 = GetStdHandle(-11)
+        var written: int32 = 0
+        var len: int32 = strlen(s)
+        WriteFile(stdout, s, len, &written, null)
+        return
+    end
+end
+
+// alot of other stuff coming soon!

@@ -2,11 +2,12 @@
 #define VIX_IR_H
 
 #include "import.h"
-#include "ast.h"
 #include "register.h"
 
 typedef struct IR_Expr IR_Expr;
 typedef struct IR_Stmt IR_Stmt;
+
+
 
 typedef union {
     int64_t int_val;
@@ -60,6 +61,7 @@ typedef struct {
     CallingConv   cc;
 } IR_FuncDef;
 
+
 typedef struct {
     Pattern  pattern;
     IR_Stmt *body;
@@ -70,7 +72,10 @@ typedef enum {
     IR_Expr_Literal,
     IR_Expr_VarRef,
     IR_Expr_BinOp,
+    IR_Expr_UnaryOp,
     IR_Expr_Call,
+    IR_Expr_Idx,
+    IR_Expr_Array,
     IR_Expr_MethodCall,
     IR_Expr_MakeStruct,
     IR_Expr_MakeClass,
@@ -80,6 +85,7 @@ typedef enum {
     IR_Expr_Cast,
     IR_Expr_Deref,
     IR_Expr_MakeTuple,
+    IR_Expr_AddrOf,
     IR_Expr_TupleIndex,
 } IR_ExprTag;
 
@@ -91,17 +97,22 @@ struct IR_Expr {
         struct { IR_LiteralData data; } literal;
         struct { SourceRange name; EntityID eid; } var_ref;
         struct { LexerTokenTag op; IR_Expr *lhs; IR_Expr *rhs; } bin;
+        struct { LexerTokenTag op; IR_Expr *operand; } unary;
         struct { SourceRange name; EntityID eid; IR_Expr **args; size_t args_count; } call;
         struct { IR_Expr *object; SourceRange method; EntityID method_eid; IR_Expr **args; size_t args_count; } method_call;
         struct { SourceRange name; EntityID eid; IR_FieldInit *fields; size_t fields_count; } make_struct;
         struct { SourceRange name; EntityID eid; IR_Expr **args; size_t args_count; } make_class;
         struct { SourceRange type_name; SourceRange variant; EntityID eid; IR_Expr **args; size_t args_count; } make_enum;
-        struct { IR_Expr *object; SourceRange field; } field;
+
         struct { IR_Expr *object; IR_Expr *index; } index;
         struct { IR_Expr *expr; } cast;
         struct { IR_Expr *ptr; } deref;
         struct { IR_Expr** elems; size_t elems_count; } make_tuple;
         struct { IR_Expr*  tuple; size_t index; } tuple_index;
+        struct { IR_Expr* base; IR_Expr* index; SourceRange range; } idx;
+        struct { IR_Expr** elems; size_t elems_count; } array;
+        struct { IR_Expr* object; SourceRange field; FieldOwnerKind kind; EntityID type_eid; } field;
+        struct { IR_Expr *expr; } addr_of;
     } data;
 };
 
@@ -118,7 +129,6 @@ typedef enum {
     IR_Stmt_Match,
     IR_Stmt_Expr,
     IR_Stmt_SsaTemp,
-    IR_Def_Extern,
     IR_Stmt_AtomicOp,
 } IR_StmtTag;
 
@@ -149,6 +159,10 @@ typedef enum {
     IR_Def_Class,
     IR_Def_Trait,
     IR_Def_VTable,
+    IR_Def_Const,
+    IR_Def_Var,
+    IR_Def_Let,
+    IR_Def_Extern,
 } IR_DefTag;
 
 typedef struct {
@@ -162,14 +176,15 @@ typedef struct {
         struct { SourceRange name; EntityID eid; IR_FuncDef *methods; size_t methods_count; bool is_pub; } trait_;
         struct { SourceRange abi; SourceRange ffi; SourceRange name; EntityID eid; Type return_type; IR_Param *params; size_t params_count; bool is_pub; } extern_;
         struct { SourceRange trait_name; SourceRange impl_type; EntityID eid; IR_FuncDef* methods; size_t methods_count; } vtable;    
+        struct { SourceRange name; EntityID eid; Type ty; IR_Expr *init; } const_;
+        struct { SourceRange name; EntityID eid; Type ty; IR_Expr *init; VarMode mode; } var_;
+        struct { SourceRange name; EntityID eid; Type ty; IR_Expr *init; VarMode mode; } let_;
     } data;
 } IR_Def;
 
 typedef struct {
-    char   *name;
-    IR_Def *defs;
-    size_t  defs_count;
-    size_t  defs_cap;
+    char *name;
+    ARR(IR_Def) defs;
 } IR_Module;
 
 typedef IR_Expr* IR_Expr_Ptr;
@@ -185,14 +200,10 @@ typedef struct { IR_VariantDef*data; size_t len; size_t cap; } IR_VariantDefArr;
 
 
 static inline void ir_module_push(IR_Module *mod, IR_Def def) {
-    if (mod->defs_count == mod->defs_cap) {
-        mod->defs_cap = mod->defs_cap ? mod->defs_cap * 2 : 16;
-        mod->defs = (IR_Def *)realloc(mod->defs, mod->defs_cap * sizeof(IR_Def));
-    }
-    mod->defs[mod->defs_count++] = def;
+    if (mod) ARR_PUSH(mod->defs, def);
 }
 
-static inline IR_Expr *ir_expr_alloc(IR_Expr expr) {
+IR_Expr *ir_expr_alloc(IR_Expr expr) {
     IR_Expr *p = (IR_Expr *)malloc(sizeof(IR_Expr));
     *p = expr;
     return p;
@@ -255,7 +266,71 @@ static inline IR_Expr ir_literal_str(SourceRange o) {
     return e;
 }
 
-IR_Module lower_module(const char* project_name, Stmts* stmts, size_t count, Register* reg);
-void      ir_module_free(IR_Module* mod);
+
+void ir_push_stmt(IR_StmtArr *out, IR_Stmt s) { ARR_PUSH(*out, s); }
+
+#define LOWER_EXPR(reg, src) \
+    ((src) && (src)->tag ? lower_expr((reg), (src)) : (IR_Expr){0})
+
+// Safe alloc - only allocs if src is non-null and has a tag
+#define LOWER_EXPR_ALLOC(reg, src) \
+    ((src) && (src)->tag ? ir_expr_alloc(lower_expr((reg), (src))) : NULL)
+
+static inline void ir_push_if(IR_StmtArr *out, IR_Stmt s) {
+    if (out) ir_push_stmt(out, s);
+}
+
+static inline void ir_mod_push_if(IR_Module *mod, IR_Def d) {
+    if (mod) ir_module_push(mod, d);
+}
+
+#define IR_PUSH(out, stmt)   ir_push_if((out), (stmt))
+#define IR_MOD_PUSH(mod, def) ir_mod_push_if((mod), (def))
+
+
+#define LOWER_STMTS(reg, out, mod, arr, count) \
+    for (size_t _i = 0; _i < (count); _i++) \
+        lower_stmt((reg), (mod) ? *(mod) : (IR_Module){0})
+
+#define LOWER_PARAMS(reg, params_arr, src, count) \
+    for (size_t _i = 0; _i < (count); _i++) { \
+        RegisterEntry *_pe = register_get((reg), sv_from_range((src)[_i].name)); \
+        ARR_PUSH((params_arr), ((IR_Param){ \
+            .name = (src)[_i].name, \
+            .ty   = DEREF_TYPE((src)[_i].type_tree, (src)[_i].c_type), \
+            .mode = (src)[_i].mode, \
+            .eid  = _pe ? _pe->eid : (EntityID){0}, \
+        })); \
+    }
+
+#define LOWER_ARGS(reg, out_ptr, out_count, src, count) \
+    do { \
+        IR_ExprPtrArr _arr = {0}; \
+        for (size_t _i = 0; _i < (count); _i++) \
+            ARR_PUSH(_arr, ir_expr_alloc(lower_expr((reg), &(src)[_i].value))); \
+        (out_ptr)   = _arr.data; \
+        (out_count) = _arr.len; \
+    } while(0)
+
+#define LOWER_ARGS_RAW(reg, out_ptr, out_count, src, count) \
+    do { \
+        IR_ExprPtrArr _arr = {0}; \
+        for (size_t _i = 0; _i < (count); _i++) \
+            ARR_PUSH(_arr, ir_expr_alloc(lower_expr((reg), &(src)[_i]))); \
+        (out_ptr)   = _arr.data; \
+        (out_count) = _arr.len; \
+    } while(0)
+#define LOWER_FIELDS(src, count, out_arr) \
+    for (size_t _i = 0; _i < (count); _i++) { \
+        ARR_PUSH((out_arr), ((IR_FieldDef){ \
+            .name = (src)[_i].name, \
+            .ty   = (src)[_i].type_tree ? *(src)[_i].type_tree : (Type){0}, \
+        })); \
+    }
+
+IR_Module lower_stmt(Register *reg, IR_Module mod, IR_StmtArr *stmts_out);
+IR_Def lower_function(Register *reg, uint32_t id);
+
+Type type_from_range(SourceRange r);
 
 #endif /* VIX_IR_H */

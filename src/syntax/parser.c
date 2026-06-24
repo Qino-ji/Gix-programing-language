@@ -9,6 +9,8 @@ bool range_eq(SourceRange r, const char* str) {
     return strlen(str) == len && memcmp(r.start, str, len) == 0;
 }
 Exprs parser_builtin_function(Parser* self);
+Exprs parser_index(Parser* self, SourceRange idx);
+Type parser_type_base(Parser* self);
 
 
 static inline bool is_operation(LexerTokenTag tag) {
@@ -110,6 +112,51 @@ Operation operation_op(Parser* self);
 Stmts parser_operation(Parser* self);
 Exprs parser_expr_primary(Parser* self);
 
+
+Exprs parser_literal(Parser* self, SourceRange name) {
+    parser_advance(self); // consume '{'
+
+    ParamArr fields = {0};
+
+    while (parser_current(self).tag != RightBraces && parser_current(self).tag != EOFs) {
+        Param p = {0};
+
+        if (parser_current(self).tag == Identifier) {
+            p.name = parser_current(self).range;
+            parser_advance(self);
+        } else {
+            parse_error(self, ParseErr_ExpectedToken, "expected field name in struct literal", Identifier);
+            parser_sync(self);
+            break;
+        }
+
+        if (parser_current(self).tag == Equalss) {
+            parser_advance(self);
+        } else {
+            parse_error(self, ParseErr_ExpectedToken, "expected '=' after field name", Equalss);
+        }
+
+        p.value = parser_expr(self);
+        ARR_PUSH(fields, p);
+
+        if (parser_current(self).tag == Commas) parser_advance(self);
+    }
+
+    if (!parser_expect(self, RightBraces)) parser_sync(self);
+
+    return (Exprs){
+        .tag = Expr_Struct_Calls,
+        .data = { .struct_calls = {
+            .name = name,
+            .function = (SourceRange){0},
+            .param = fields.data,
+            .param_count = fields.len,
+            .generic_params = NULL,
+            .generic_params_count = 0,
+        }}
+    };
+}
+
 Exprs parser_expr_bp(Parser* self, int min_prec) {
     Exprs left = parser_expr_primary(self);
 
@@ -132,22 +179,25 @@ Exprs parser_expr_bp(Parser* self, int min_prec) {
           };
     }
 
-
     if (parser_current(self).tag == Ass) {
-        parser_advance(self);
-        Type* cast_ty = malloc(sizeof(Type));
-        *cast_ty = parser_type(self);
-        fprintf(stderr, "[DEBUG] cast target type tag = %d, ptr inner = %p\n",
-            cast_ty->tag,
-            (cast_ty->tag == Type_Ptr || cast_ty->tag == Type_RawPtr)
-                ? (void*)cast_ty->data.ptr.inner : NULL);
-        Exprs* inner = malloc(sizeof(Exprs));
-        *inner = left;
-        left = (Exprs){
-            .tag = Expr_Cast,
-            .data.cast = { .expr = inner, .ty = cast_ty }
-        };
-    }
+    parser_advance(self); // consume 'as'
+
+    
+    Type cast_ty = parser_type(self);
+    Exprs* inner = malloc(sizeof(Exprs));
+    *inner = left;
+
+    Type* ty_heap = malloc(sizeof(Type));
+    *ty_heap = cast_ty;
+
+    left = (Exprs){
+        .tag = Expr_Cast,
+        .data.cast = {
+            .expr = inner,
+            .ty   = ty_heap,
+        }
+    };
+}
 
     return left;
 }
@@ -156,8 +206,46 @@ Exprs parser_expr(Parser* self) {
     return parser_expr_bp(self, 0);
 }
 
+Exprs parser_array(Parser* self) {
+    SourceRange start = parser_current(self).range;
+    parser_advance(self); 
+
+    ExprsArr elems = {0};
+
+    while (parser_current(self).tag != RightBrackets && parser_current(self).tag != EOFs) {
+        Exprs e = parser_expr(self);
+        ARR_PUSH(elems, e);
+        if (parser_current(self).tag == Commas) {
+            parser_advance(self);
+        } else {
+            break;
+        }
+    }
+
+    if (!parser_expect(self, RightBrackets)) parser_sync(self);
+
+    return (Exprs){
+        .tag = Expr_Array,
+        .data.array = {
+            .elems = elems.data,
+            .elems_count = elems.len,
+        }
+    };
+}
+
+
 Exprs parser_expr_primary(Parser* self) {
     LexerToken tok = parser_current(self);
+
+    if (tok.tag == Ampersands) {
+        parser_advance(self);
+        Exprs* operand = malloc(sizeof(Exprs));
+        *operand = parser_expr_primary(self);
+        return (Exprs){
+            .tag = Expr_AddrOf,
+            .data.unary = { .op = Ampersands, .operand = operand }
+        };
+    }
 
     if (tok.tag == Minuss) {
         parser_advance(self);
@@ -208,10 +296,7 @@ Exprs parser_expr_primary(Parser* self) {
         return inner;
     }
 
-    if (tok.tag == Strings || tok.tag == Ints  ||
-        tok.tag == Floats  || tok.tag == Chars ||
-        tok.tag == Trues   || tok.tag == Falses ||
-        tok.tag == Nulls) {
+    if (tok.tag == Strings || tok.tag == Ints  || tok.tag == Floats  || tok.tag == Chars || tok.tag == Trues   || tok.tag == Falses || tok.tag == Nulls) {
         parser_advance(self);
         return (Exprs){
             .tag = Expr_Literals,
@@ -268,15 +353,38 @@ Exprs parser_expr_primary(Parser* self) {
         return parser_builtin_function(self);
     }
 
-
     if (tok.tag == Identifier) {
         SourceRange name = tok.range;
         parser_advance(self);
 
         LexerToken next = parser_current(self);
-        if (next.tag == LeftParens || next.tag == LeftBrackets) return parser_function_call(self, name);
-        if (next.tag == Dots) return parser_method_calls(self, name);
 
+        if (next.tag == LeftBraces) return parser_literal(self, name);
+        if (next.tag == LeftParens) return parser_function_call(self, name);
+
+        if (next.tag == Dots) { 
+            return parser_method_calls(self, name);
+        }
+        
+        if (next.tag == LeftBrackets) {
+            parser_advance(self); // consume '['
+
+
+            if (parser_current(self).tag == TypeToken) {
+                // support this.
+                return (Exprs){0};
+            }
+
+            if (parser_current(self).tag == LeftParens) {
+                return parser_function_call(self, name);
+            }
+
+            return parser_index(self, name);
+        }
+
+        if (tok.tag == LeftBrackets) return parser_array(self);
+
+    
         return (Exprs){
             .tag = Expr_Identifiers,
             .data = { .identifiers = { .name = name }}
@@ -292,15 +400,40 @@ Exprs parser_expr_primary(Parser* self) {
 
     return (Exprs){0};
 }
+
+
+Exprs parser_index(Parser* self, SourceRange idx) {
+    Exprs base_expr = (Exprs){
+        .tag = Expr_Identifiers,
+        .data = { .identifiers = { .name = idx }}
+    };
+    Exprs* base = malloc(sizeof(Exprs));
+    *base = base_expr;
+
+    Exprs* index = malloc(sizeof(Exprs));
+    *index = parser_expr(self);
+
+    if (!parser_expect(self, RightBrackets)) parser_sync(self);
+
+    return (Exprs){
+        .tag = Expr_Idx,
+        .data.idx = {
+            .base = base,
+            .index = index,
+            .range = idx,
+        }
+    };
+}
+
+
 Exprs parser_function_call(Parser* self, SourceRange fn) {
-    parser_advance(self);
     RangeArr generic_params = {0};
     ParamArr params = {0};
 
     if (parser_current(self).tag == LeftBrackets) {
-        parser_advance(self);
+        parser_advance(self); // consume '['
         while (parser_current(self).tag != RightBrackets && parser_current(self).tag != EOFs) {
-            if (parser_current(self).tag == Identifier) {
+            if (parser_current(self).tag == Identifier || parser_current(self).tag == TypeToken, parser_current(self).tag == Ints) {
                 ARR_PUSH(generic_params, parser_current(self).range);
                 parser_advance(self);
             } else if (parser_current(self).tag == Commas) {
@@ -311,53 +444,28 @@ Exprs parser_function_call(Parser* self, SourceRange fn) {
             }
         }
         if (!parser_expect(self, RightBrackets)) parser_sync(self);
-        if (!parser_expect(self, LeftParens)) parser_sync(self);
     }
+
+    if (!parser_expect(self, LeftParens)) parser_sync(self);
 
     while (parser_current(self).tag != RightParens && parser_current(self).tag != EOFs) {
         Param p = {0};
         LexerToken cur = parser_current(self);
 
-        if (cur.tag != Identifier) {
-            p.value = parser_expr(self);
-            p.name  = (SourceRange){0};
-            ARR_PUSH(params, p);
-            if (parser_current(self).tag == Commas) parser_advance(self);
-            continue;
-        }
-
-        p.name = cur.range;
-        parser_advance(self);
-
-        if (parser_current(self).tag == Colons) {
+        if (cur.tag == Identifier && parser_peek_next(self).tag == Colons) {
+            p.name = cur.range;
+            parser_advance(self);
             parser_advance(self);
             p.value = parser_expr(self);
         } else {
-            Exprs ident = (Exprs){
-                .tag = Expr_Identifiers,
-                .data = { .identifiers = { .name = p.name }}
-            };
-            Exprs* inner = malloc(sizeof(Exprs));
-            *inner = ident;
-
-            if (parser_current(self).tag == Ass) {
-                parser_advance(self);
-                Type* cast_ty = malloc(sizeof(Type));
-                *cast_ty = parser_type(self);
-                p.value = (Exprs){
-                    .tag = Expr_Cast,
-                    .data.cast = { .expr = inner, .ty = cast_ty }
-                };
-            } else {
-                p.value = ident;
-                free(inner);
-            }
-            p.name = (SourceRange){0};
+            p.name  = (SourceRange){0};
+            p.value = parser_expr(self);
         }
 
         ARR_PUSH(params, p);
         if (parser_current(self).tag == Commas) parser_advance(self);
     }
+
     if (!parser_expect(self, RightParens)) parser_sync(self);
 
     return (Exprs){
@@ -372,8 +480,9 @@ Exprs parser_function_call(Parser* self, SourceRange fn) {
     };
 }
 
+
 Exprs parser_method_calls(Parser* self, SourceRange class) {
-    parser_advance(self);
+    parser_advance(self); // consume '.'
     SourceRange function = {0};
     RangeArr generic_params = {0};
     ParamArr params = {0};
@@ -388,7 +497,7 @@ Exprs parser_method_calls(Parser* self, SourceRange class) {
     if (parser_current(self).tag == LeftBrackets) {
         parser_advance(self);
         while (parser_current(self).tag != RightBrackets && parser_current(self).tag != EOFs) {
-            if (parser_current(self).tag == Identifier) {
+            if (parser_current(self).tag == Identifier || parser_current(self).tag == TypeToken) {
                 ARR_PUSH(generic_params, parser_current(self).range);
                 parser_advance(self);
             } else if (parser_current(self).tag == Commas) {
@@ -405,39 +514,42 @@ Exprs parser_method_calls(Parser* self, SourceRange class) {
         parser_advance(self);
         while (parser_current(self).tag != RightParens && parser_current(self).tag != EOFs) {
             Param p = {0};
-            if (parser_current(self).tag == Identifier) {
+
+            if (parser_current(self).tag == Identifier && parser_peek_next(self).tag == Colons) {
                 p.name = parser_current(self).range;
-                parser_advance(self);
+                parser_advance(self); // consume name
+                parser_advance(self); // consume ':'
+                p.value = parser_expr(self);
             } else {
-                parse_error(self, ParseErr_ExpectedToken, "expected parameter name", Identifier);
-                parser_sync(self);
-                break;
+                p.name  = (SourceRange){0};
+                p.value = parser_expr(self);
             }
 
-            if (parser_current(self).tag == Colons) {
-                parser_advance(self);
-            } else {
-                parse_error(self, ParseErr_ExpectedToken, "expected ':' after parameter name", Colons);
-            }
-
-            p.value = parser_expr(self);
             ARR_PUSH(params, p);
-
             if (parser_current(self).tag == Commas) parser_advance(self);
         }
         if (!parser_expect(self, RightParens)) parser_sync(self);
+
+
+        return (Exprs){
+            .tag = Expr_Class_Calls,
+            .data = { .class_calls = {
+                .name = class,
+                .function = function,
+                .generic_params = generic_params.data,
+                .generic_params_count = generic_params.len,
+                .param = params.data,
+                .param_count = params.len
+            }}
+        };
     }
 
     return (Exprs){
-        .tag = Expr_Class_Calls,
-        .data = { .class_calls = {
-            .name = class,
-            .function = function,
-            .generic_params = generic_params.data,
-            .generic_params_count = generic_params.len,
-            .param = params.data,
-            .param_count = params.len
-        }}
+        .tag = Expr_Field,
+        .data.field_access = {
+            .object = class,
+            .field  = function,
+        }
     };
 }
 
@@ -582,29 +694,13 @@ Exprs parser_enums_call(Parser* self, SourceRange en) {
         }}
     };
 }
-Type parser_type(Parser* self) {
+Type parser_type_base(Parser* self) {
     LexerToken tok = parser_current(self);
 
     if (tok.tag == TypeToken) {
         Type t = {0};
-
         t.tag = (TypeTag)tok.data.value_int;
         parser_advance(self);
-
-        if (t.tag != Type_Void && parser_current(self).tag == LeftBrackets) {
-            parser_advance(self); size_t len = 0;
-
-            if (parser_current(self).tag == Ints) {
-                len = (size_t)parser_current(self).data.value_int;
-                parser_advance(self);
-            }
-
-            if (!parser_expect(self, RightBrackets)) parser_sync(self);
-            Type* inner = malloc(sizeof(Type));
-            *inner = t;
-
-            return (Type){ .tag=Type_Array, .data.array_t.inner=inner, .data.array_t.len=len };
-        }
         return t;
     }
 
@@ -613,14 +709,14 @@ Type parser_type(Parser* self) {
     if (tok.tag == Strings) { parser_advance(self); return (Type){ .tag = Type_Str }; }
     if (tok.tag == Chars) { parser_advance(self); return (Type){ .tag = Type_Char }; }
     if (tok.tag == Voids) { parser_advance(self); return (Type){ .tag = Type_Void }; }
-    if (tok.tag == Identifier) { parser_advance(self); return (Type){ .tag = Type_Custom, .data.custom = { .name = tok.range } }; }
+    if (tok.tag == Bools ) { parser_advance(self); return (Type){ .tag = Type_Bool }; }
+
     if (parser_current(self).tag == Atomics) {
-        parser_advance(self); 
+        parser_advance(self);
 
         if (!self->atomic_imported) {
             parse_error(self, ParseErr_UnexpectedToken, "atomic[T] requires 'import Atomic from std'", Atomics);
             parser_advance(self);
-            
             return (Type){ .tag = Type_Void };
         }
 
@@ -628,6 +724,7 @@ Type parser_type(Parser* self) {
             parse_error(self, ParseErr_ExpectedToken, "expected '[' after 'atomic'", LeftBrackets);
             return (Type){ .tag = Type_Void };
         }
+        parser_advance(self); // consume '['
 
         Type* inner = malloc(sizeof(Type));
         *inner = parser_type(self);
@@ -638,18 +735,13 @@ Type parser_type(Parser* self) {
             parser_advance(self);
         }
 
-        return (Type){
-            .tag = Type_Atomic,
-            .data.atomic.inner = inner
-        };
+        return (Type){ .tag = Type_Atomic, .data.atomic.inner = inner };
     }
 
     if (tok.tag == LeftParens) {
         parser_advance(self);
-        
         Type* elems = NULL;
-        size_t elems_count = 0;
-        size_t elems_cap = 0;
+        size_t elems_count = 0, elems_cap = 0;
 
         while (parser_current(self).tag != RightParens && parser_current(self).tag != EOFs) {
             if (elems_count == elems_cap) {
@@ -659,16 +751,9 @@ Type parser_type(Parser* self) {
             elems[elems_count++] = parser_type(self);
             if (parser_current(self).tag == Commas) parser_advance(self);
         }
-
         if (!parser_expect(self, RightParens)) parser_sync(self);
 
-        return (Type){
-            .tag = Type_Tuple,
-            .data.tuple = {
-                .elems = elems,
-                .elems_count = elems_count,
-            }
-        };
+        return (Type){ .tag = Type_Tuple, .data.tuple = { .elems = elems, .elems_count = elems_count } };
     }
 
     if (tok.tag == Stars) {
@@ -677,10 +762,10 @@ Type parser_type(Parser* self) {
         if (parser_current(self).tag == Stars) {
             parser_advance(self);
             *inner = parser_type(self);
-            return (Type){ .tag=Type_RawPtr, .data.raw_ptr.inner=inner };
+            return (Type){ .tag = Type_RawPtr, .data.raw_ptr.inner = inner };
         }
         *inner = parser_type(self);
-        return (Type){ .tag=Type_Ptr, .data.ptr.inner=inner };
+        return (Type){ .tag = Type_Ptr, .data.ptr.inner = inner };
     }
 
     if (tok.tag == Functions) {
@@ -691,39 +776,50 @@ Type parser_type(Parser* self) {
             parser_advance(self);
             size_t cap = 0;
             while (parser_current(self).tag != RightParens && parser_current(self).tag != EOFs) {
-                if (params_count == cap) { cap = cap ? cap*2 : 4; params = realloc(params, cap*sizeof(Type)); }
+                if (params_count == cap) { cap = cap ? cap * 2 : 4; params = realloc(params, cap * sizeof(Type)); }
                 params[params_count++] = parser_type(self);
                 if (parser_current(self).tag == Commas) parser_advance(self);
             }
             if (!parser_expect(self, RightParens)) parser_sync(self);
         }
 
-        Type ret = {.tag=Type_Void};
+        Type ret = { .tag = Type_Void };
         if (parser_current(self).tag == Colons) { parser_advance(self); ret = parser_type(self); }
         Type* ret_heap = malloc(sizeof(Type));
         *ret_heap = ret;
-        return (Type){ .tag=Type_FnPtr, .data.fn_ptr={.ret=ret_heap,.params=params,.params_count=params_count} };
+        return (Type){ .tag = Type_FnPtr, .data.fn_ptr = { .ret = ret_heap, .params = params, .params_count = params_count } };
     }
 
     if (tok.tag == Identifier) {
-        SourceRange r = tok.range;
         parser_advance(self);
-        Type base = (Type){ .tag=Type_Custom, .data.custom.name=r };
-        if (parser_current(self).tag == LeftBrackets) {
-            parser_advance(self);
-            size_t len = 0;
-            if (parser_current(self).tag == Ints) { len=(size_t)parser_current(self).data.value_int; parser_advance(self); }
-            if (!parser_expect(self, RightBrackets)) parser_sync(self);
-            Type* inner = malloc(sizeof(Type));
-            *inner = base;
-            return (Type){ .tag=Type_Array, .data.array_t.inner=inner, .data.array_t.len=len };
-        }
-        return base;
+        return (Type){ .tag = Type_Custom, .data.custom = { .name = tok.range } };
     }
 
     parse_error(self, ParseErr_InvalidType, "expected a type", tok.tag);
     parser_advance(self);
-    return (Type){ .tag=Type_Void };
+    return (Type){ .tag = Type_Void };
+}
+
+Type parser_type(Parser* self) {
+    Type t = parser_type_base(self);
+
+    if (t.tag == TypeToken && parser_current(self).tag == LeftBrackets) {
+        parser_advance(self);
+        size_t len = 0;
+
+        if (parser_current(self).tag == Ints) {
+            len = (size_t)parser_current(self).data.value_int;
+            parser_advance(self);
+        }
+
+        if (!parser_expect(self, RightBrackets)) parser_sync(self);
+
+        Type* inner = malloc(sizeof(Type));
+        *inner = t;
+        return (Type){ .tag = Type_Array, .data.array_t.inner = inner, .data.array_t.len = len };
+    }
+
+    return t;
 }
 
 Stmts parser_functions(Parser* self, bool is_const, bool is_unsafe, bool is_pub) {
@@ -805,11 +901,6 @@ Stmts parser_functions(Parser* self, bool is_const, bool is_unsafe, bool is_pub)
 
         p.c_type = param_type.tag == Type_Custom ? param_type.data.custom.name : (SourceRange){0};
         p.type_tree = (param_type.tag == Type_Custom) ? NULL : memdup(&param_type, sizeof(Type));
-
-        fprintf(stderr, "[DEBUG] param '%.*s' type tag = %d, type_tree = %p\n",
-    (int)(p.name.end - p.name.start), p.name.start,
-    param_type.tag, (void*)p.type_tree);
-
 
         ARR_PUSH(params, p);
         if (parser_current(self).tag == Commas) parser_advance(self);
@@ -1599,8 +1690,6 @@ Stmts parser_lets(Parser* self) {
 }
 
 Stmts parser_const(Parser* self) {
-    parser_advance(self);
-
     SourceRange start = parser_current(self).range;
     SourceRange n = {0};
     Type const_type = {0};
@@ -1913,8 +2002,8 @@ ExternBlock parser_extern(Parser* self) {
             fn.return_type_tree = type_heap(ret_type); 
         }
 
-        ARR_PUSH(funcs, fn);
         fn.ffi_type = abi;
+        ARR_PUSH(funcs, fn);
     }
 
     if (!parser_expect(self, Ends)) parser_sync(self);
@@ -1975,6 +2064,34 @@ Stmts parser_match(Parser* self) {
             .expr = condition,
             .cases = arms.data,
             .cases_count = arms.len,
+        }
+    };
+}
+Stmts parser_while(Parser* self) {
+    parser_advance(self); // consume 'while'
+
+    Exprs condition = parser_expr(self);
+
+    if (parser_current(self).tag == Dos) {
+        parser_advance(self);
+    } else {
+        parse_error(self, ParseErr_ExpectedToken, "expected 'do' after while condition", Dos);
+    }
+
+    StmtsArr body = {0};
+    while (parser_current(self).tag != Ends && parser_current(self).tag != EOFs) {
+        Stmts s = parser_stmt(self);
+        if (s.tag != 0) ARR_PUSH(body, s);
+    }
+
+    if (!parser_expect(self, Ends)) parser_sync(self);
+
+    return (Stmts){
+        .tag = Stmt_Whiles,
+        .data.whiles = {
+            .cond = condition,
+            .body = body.data,
+            .body_count = body.len,
         }
     };
 }
@@ -2330,14 +2447,13 @@ Exprs parser_builtin_function(Parser* self) {
 }
 
 Stmts parser_self(Parser* self) {
-    parser_advance(self);
+    parser_advance(self); // consume 'self'
  
     if (parser_current(self).tag != Dots) {
         parse_error(self, ParseErr_ExpectedToken, "expected '.' after 'self'", Dots);
         return (Stmts){0};
     }
-
-    parser_advance(self);
+    parser_advance(self); // consume '.'
 
     SourceRange method = {0};
     if (parser_current(self).tag == Identifier) {
@@ -2348,8 +2464,43 @@ Stmts parser_self(Parser* self) {
         return (Stmts){0};
     }
 
+    if (parser_current(self).tag == Equalss ||
+        parser_current(self).tag == PlusEqualss ||
+        parser_current(self).tag == MinusEqualss ||
+        parser_current(self).tag == StarEqualss ||
+        parser_current(self).tag == SlashEqualss ||
+        parser_current(self).tag == PercentEqualss ||
+        parser_current(self).tag == AmpersandEqualss ||
+        parser_current(self).tag == PipeEqualss ||
+        parser_current(self).tag == CaretEqualss ||
+        parser_current(self).tag == LeftShiftEqualss ||
+        parser_current(self).tag == RightShiftEqualss) {
+        LexerTokenTag op = parser_current(self).tag;
+        parser_advance(self);
+        Exprs value = parser_expr(self);
+
+        Exprs target = (Exprs){
+            .tag = Expr_Self,
+            .data.self_access = {
+                .target  = method,
+                .is_call = false,
+            }
+        };
+
+        return (Stmts){
+            .tag = Stmt_Assigns,
+            .data.assigns = {
+                .target = target,
+                .op = op,
+                .value = value,
+            }
+        };
+    }
+
     ParamArr args = {0};
+    bool is_call = false;
     if (parser_current(self).tag == LeftParens) {
+        is_call = true;
         parser_advance(self);
         while (parser_current(self).tag != RightParens && parser_current(self).tag != EOFs) {
             Param p = {0};
@@ -2366,7 +2517,7 @@ Stmts parser_self(Parser* self) {
             .target     = method,
             .args       = args.data,
             .args_count = args.len,
-            .is_call    = true,
+            .is_call    = is_call,
         }
     };
     return (Stmts){
@@ -2520,6 +2671,7 @@ Stmts parser_stmt(Parser* self) {
         switch (parser_current(self).tag) {
             case Functions: return parser_functions(self, true, false, false);
             case Locals:    return parser_globle(self, false, true);
+            case Identifier: return parser_const(self);
             default: {
                 parse_error(self, ParseErr_UnexpectedToken,
                     "expected 'fn' or 'global' after 'const'",
@@ -2548,6 +2700,7 @@ Stmts parser_stmt(Parser* self) {
             case Fors:      return parser_for(self);
             case Ats:       return parser_operation(self);
             case Selfs:     return parser_self(self);
+            case Whiles:    return parser_while(self);
             case Externs: {
                 ExternBlock ex = parser_extern(self);
                 
@@ -2562,6 +2715,8 @@ Stmts parser_stmt(Parser* self) {
 
             }
 
+
+
             case Identifier: {
                 SourceRange name = parser_current(self).range;
                 parser_advance(self);
@@ -2569,11 +2724,7 @@ Stmts parser_stmt(Parser* self) {
                 LexerToken next = parser_current(self);
 
                 if (next.tag == Dots) {
-                    Exprs obj = (Exprs){
-                        .tag = Expr_Identifiers,
-                        .data = { .identifiers = { .name = name }}
-                    };
-                    parser_advance(self);
+                    parser_advance(self); // consume '.'
                     SourceRange method = {0};
                     if (parser_current(self).tag == Identifier) {
                         method = parser_current(self).range;
@@ -2586,37 +2737,68 @@ Stmts parser_stmt(Parser* self) {
                         return parser_atomic_op(self, name, op);
                     }
 
+                    RangeArr generic_params = {0};
                     ParamArr args = {0};
+
+                    if (parser_current(self).tag == LeftBrackets) {
+                        parser_advance(self);
+                        while (parser_current(self).tag != RightBrackets && parser_current(self).tag != EOFs) {
+                            if (parser_current(self).tag == Identifier || parser_current(self).tag == TypeToken) {
+                                ARR_PUSH(generic_params, parser_current(self).range);
+                                parser_advance(self);
+                            } else if (parser_current(self).tag == Commas) {
+                                parser_advance(self);
+                            } else {
+                                parse_error(self, ParseErr_UnexpectedToken, "expected identifier or ',' in generic params", parser_current(self).tag);
+                                parser_advance(self);
+                            }
+                        }
+                        if (!parser_expect(self, RightBrackets)) parser_sync(self);
+                    }
+
+                    Exprs call;
                     if (parser_current(self).tag == LeftParens) {
                         parser_advance(self);
                         while (parser_current(self).tag != RightParens && parser_current(self).tag != EOFs) {
                             Param p = {0};
-                            if (parser_current(self).tag == Identifier) {
+
+                            if (parser_current(self).tag == Identifier &&
+                                parser_peek_next(self).tag == Colons) {
                                 p.name = parser_current(self).range;
-                                parser_advance(self);
-                            }
-                            if (parser_current(self).tag == Colons) {
-                                parser_advance(self);
+                                parser_advance(self); // consume name
+                                parser_advance(self); // consume ':'
+                                p.value = parser_expr(self);
+                            } else {
+                                p.name  = (SourceRange){0};
                                 p.value = parser_expr(self);
                             }
 
                             ARR_PUSH(args, p);
-
                             if (parser_current(self).tag == Commas) parser_advance(self);
                         }
                         if (!parser_expect(self, RightParens)) parser_sync(self);
+
+                        call = (Exprs){
+                            .tag = Expr_Class_Calls,
+                            .data = { .class_calls = {
+                                .name = name,
+                                .function = method,
+                                .generic_params = generic_params.data,
+                                .generic_params_count = generic_params.len,
+                                .param = args.data,
+                                .param_count = args.len
+                            }}
+                        };
+                    } else {
+                        call = (Exprs){
+                            .tag = Expr_Field,
+                            .data.field_access = {
+                                .object = name,
+                                .field  = method,
+                            }
+                        };
                     }
-                    Exprs* obj_heap = malloc(sizeof(Exprs));
-                    *obj_heap = obj;
-                    Exprs call = (Exprs){
-                        .tag = Expr_Class_Calls,
-                        .data = { .class_calls = {
-                            .name = name,
-                            .function = method,
-                            .param = args.data,
-                            .param_count = args.len,
-                        }}
-                    };
+
                     return (Stmts){
                         .tag = Stmt_ExprStmt,
                         .data.expr_stmt = { .expr = call }
@@ -2624,7 +2806,6 @@ Stmts parser_stmt(Parser* self) {
                 }
 
                 LexerTokenTag op = next.tag;
-
                 switch (op) {
                     case Equalss:
                     case PlusEqualss:
@@ -2652,14 +2833,71 @@ Stmts parser_stmt(Parser* self) {
                         };
                     }
 
-                    case LeftParens:
-                    case LeftBrackets: {
+                  
+                    case LeftParens: {
                         Exprs call = parser_function_call(self, name);
                         return (Stmts){
                             .tag = Stmt_ExprStmt,
                             .data.expr_stmt = { .expr = call }
                         };
                     }
+
+                    case LeftBrackets: {
+                        parser_advance(self); // consume '['
+                        Exprs* index = malloc(sizeof(Exprs));
+                        *index = parser_expr(self);
+                        if (!parser_expect(self, RightBrackets)) parser_sync(self);
+
+                        LexerTokenTag op = parser_current(self).tag;
+                        switch (op) {
+                            case Equalss:
+                            case PlusEqualss:
+                            case MinusEqualss:
+                            case StarEqualss:
+                            case SlashEqualss:
+                            case PercentEqualss:
+                            case AmpersandEqualss:
+                            case PipeEqualss:
+                            case CaretEqualss:
+                            case LeftShiftEqualss:
+                            case RightShiftEqualss: {
+                                parser_advance(self);
+                                Exprs value = parser_expr(self);
+                                Exprs* base = malloc(sizeof(Exprs));
+                                *base = (Exprs){
+                                    .tag = Expr_Identifiers,
+                                    .data.identifiers = { .name = name }
+                                };
+                                return (Stmts){
+                                    .tag = Stmt_Assigns,
+                                    .data.assigns = {
+                                        .target = (Exprs){
+                                            .tag = Expr_Idx,
+                                            .data.idx = { .base = base, .index = index, .range = name }
+                                        },
+                                        .op = op,
+                                        .value = value,
+                                    }
+                                };
+                            }
+                            default: {
+                                Exprs* base = malloc(sizeof(Exprs));
+                                *base = (Exprs){
+                                    .tag = Expr_Identifiers,
+                                    .data.identifiers = { .name = name }
+                                };
+                                Exprs idx_expr = (Exprs){
+                                    .tag = Expr_Idx,
+                                    .data.idx = { .base = base, .index = index, .range = name }
+                                };
+                                return (Stmts){
+                                    .tag = Stmt_ExprStmt,
+                                    .data.expr_stmt = { .expr = idx_expr }
+                                };
+                            }
+                        }
+                    }
+
 
                     default: {
                         Exprs ident = (Exprs){

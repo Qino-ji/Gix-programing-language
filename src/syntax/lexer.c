@@ -251,8 +251,10 @@ static void lexer_words(Lexer* self) {
     else if (strcmp(word, "float64")  == 0) { self->top.tag = Floats; self->top.data.value_int = 64; }
     else if (strcmp(word, "char")     == 0) { self->top.tag = Chars; self->top.data.value_int = 8; }
     else if (strcmp(word, "str")   == 0) { self->top.tag = Strings; self->top.data.value_int = 0; }
+    else if (strcmp(word, "bool")   == 0) self->top.tag = Bools; 
     else if (strcmp(word, "null") == 0) self->top.tag = Nulls;
     else if (strcmp(word, "void") == 0) self->top.tag = Voids;
+    else if (strcmp(word, "...") == 0) self->top.tag = Ellipsis;
     else if (strcmp(word, "Relaxed") == 0) { self->top.tag = Orderings; self->top.data.value_int = Ordering_Relaxed; }
     else if (strcmp(word, "Acquire") == 0) { self->top.tag = Orderings; self->top.data.value_int = Ordering_Acquire; }
     else if (strcmp(word, "Release") == 0) { self->top.tag = Orderings; self->top.data.value_int = Ordering_Release; }
@@ -284,14 +286,13 @@ static void lexer_words(Lexer* self) {
 static void lexer_numbers(Lexer* self) {
     const char* start = self->cur;
 
-    if (self->cur[0] == '0' && (self->cur[1] == 'x' || self->cur[1] == 'X')) {
+if (self->cur[0] == '0' && (self->cur[1] == 'x' || self->cur[1] == 'X')) {
         lexer_advance_char(self);
         lexer_advance_char(self);
         while (isxdigit(self->cur[0])) lexer_advance_char(self);
 
         size_t len = (size_t)(self->cur - start);
         char* value = checked_malloc(len + 1);
-
         memcpy(value, start, len);
         value[len] = '\0';
         self->top.tag = Ints;
@@ -299,6 +300,37 @@ static void lexer_numbers(Lexer* self) {
         free(value);
         return;
     }
+
+    if (self->cur[0] == '0' && (self->cur[1] == 'b' || self->cur[1] == 'B')) {
+        lexer_advance_char(self);
+        lexer_advance_char(self);
+        while (self->cur[0] == '0' || self->cur[0] == '1') lexer_advance_char(self);
+
+        size_t len = (size_t)(self->cur - start);
+        char* value = checked_malloc(len + 1);
+        memcpy(value, start, len);
+        value[len] = '\0';
+        self->top.tag = Ints;
+        self->top.data.value_int = strtoull(value + 2, NULL, 2);
+        free(value);
+        return;
+    }
+
+    if (self->cur[0] == '0' && (self->cur[1] == 'o' || self->cur[1] == 'O')) {
+        lexer_advance_char(self);
+        lexer_advance_char(self);
+        while (self->cur[0] >= '0' && self->cur[0] <= '7') lexer_advance_char(self);
+
+        size_t len = (size_t)(self->cur - start);
+        char* value = checked_malloc(len + 1);
+        memcpy(value, start, len);
+        value[len] = '\0';
+        self->top.tag = Ints;
+        self->top.data.value_int = strtoull(value + 2, NULL, 8);
+        free(value);
+        return;
+    }
+
 
     while (isdigit(self->cur[0])) {
         lexer_advance_char(self);

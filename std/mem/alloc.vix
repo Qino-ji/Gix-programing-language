@@ -12,6 +12,8 @@ end
 
 func exit(c: int): void
 	ExitProcess(c)
+
+    return
 end
 
 func malloc(size: int64): *int8
@@ -19,28 +21,12 @@ func malloc(size: int64): *int8
     return HeapAlloc(heap, 0x08, size)
 end
 
-func free(ptr: *int8, size: int64): void
+func free(ptr: *int8): void
     var heap: *int8 = GetProcessHeap()
     HeapFree(heap, 0, ptr)
+    return
 end
 
-func realloc(ptr: *int8, new_size: int64): *int8
-    var heap: *int8 = GetProcessHeap()
-
-    if heap == null then
-        exit(1)
-    end
-
-    var new_ptr: *int8 = HeapReAlloc(heap, 0x08, ptr, new_size)
-
-    return new_ptr
-end
-
-trait Alloc:
-	func alloc_mem(size: int): *void
-	func realloc_mem(target: (int, str), ptr: *void, new_size: int): *void    
-	func dealloc_mem(ptr: *void): void
-end
 
 func is_null(ptr: *int): bool
 	if ptr == null then
@@ -50,15 +36,27 @@ func is_null(ptr: *int): bool
 	return false
 end
 
+func realloc(ptr: *int8, new_size: int64): *int8
+    var heap: *int8 = GetProcessHeap()
+
+    if is_null(heap) then
+        exit(1)
+    end
+
+    var new_ptr: *int8 = HeapReAlloc(heap, 0x08, ptr, new_size)
+
+    return new_ptr
+end
+
 class Alloc()
 	public func alloc_mem(size: int): *void
 		if size == 0 then
 			return malloc(1 as uint64)
 		end
 
-		var ptr: *void = malloc(size)
+		var ptr: *void = malloc(size as uint64)  
 
-		if ptr == 0 then
+		if is_null(ptr) then
 			exit(1)
 		end
 
@@ -90,10 +88,12 @@ class Alloc()
 	end
 
 	public func dealloc_mem(ptr: *void): void
-		if is_null(ptr) then
+		if is_null(ptr as *int) then
 			return
 		end
 
 		free(ptr)
+        return
 	end
 end
+

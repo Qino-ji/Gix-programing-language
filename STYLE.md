@@ -437,3 +437,16 @@ Following this style guide will help you write clean, consistent, and maintainab
 
 Happy coding in Vix! 🚀
 
+v = -1 + -1 + 1 + 1 = 2
+
+2 - 1 = 1, t = v.top()
+1 + 5 = 6, t = 1+
+
+1 + 2 = 5 [x] // connction -1
+1 + 4 = 6 [x] // connction -1
+// ------------------------->
+1 + 1 = 2 [c] // connction +1
+5 + 2 = 7 [c] // connction +1
+4 + 1 = 5 [c] // connction +1
+
+1 + 2 = 5 [x] // connction -1, right answr: 3 // connction to right: +1
