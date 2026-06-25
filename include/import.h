@@ -19,7 +19,7 @@
 #include <sys/stat.h>
 
 #ifdef _WIN32
-#include <io.h>t
+#include <io.h>
 #include <process.h>
 #include <windows.h>
 #include <direct.h>
