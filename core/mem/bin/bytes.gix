@@ -1,0 +1,41 @@
+func to_le_bytes[T](n: T): uint8[size_of[T]]
+    var bytes = uint8[size_of[T]]
+    var byte_count = size_of[T]
+    
+    for i in range(0, byte_count) do
+        bytes[i] = ((n >> (i * 8)) & 0xFF) as uint8
+    end
+    
+    return bytes
+end
+
+func to_be_bytes[T](n: T): uint8[size_of[T]]
+    var bytes = uint8[size_of[T]]
+    var byte_count = size_of[T]
+    
+    for i in range(0, byte_count) do
+        bytes[byte_count - 1 - i] = ((n >> (i * 8)) & 0xFF) as uint8
+    end
+    
+    return bytes
+end
+
+public func read_u16(data: uint8[]): uint16
+    return (data.ptr[0] as uint16)
+        | ((data.ptr[1] as uint16) << 8)
+end
+
+public func read_u32(data: uint8[]): uint32
+    return (data.ptr[0] as uint32)
+        | ((data.ptr[1] as uint32) << 8)
+        | ((data.ptr[2] as uint32) << 16)
+        | ((data.ptr[3] as uint32) << 24)
+end
+
+public func read_last_u32(data: uint8[]): uint32
+    let len = data.len()
+    return (data.ptr[len - 4] as uint32)
+        | ((data.ptr[len - 3] as uint32) << 8)
+        | ((data.ptr[len - 2] as uint32) << 16)
+        | ((data.ptr[len - 1] as uint32) << 24)
+end

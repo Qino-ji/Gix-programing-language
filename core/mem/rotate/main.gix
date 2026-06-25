@@ -1,0 +1,10 @@
+public func rotate_left[T](value: T, n: uint32): T
+    var bits: int32 = size_of[T] * 8
+    return (value << n) | (value >> (bits - n))
+end
+
+// Generic rotate right
+public func rotate_right[T](value: T, n: uint32): T
+    const BITS: int32 = sizeof(T) * 8
+    return (value >> n) | (value << (BITS - n))
+end

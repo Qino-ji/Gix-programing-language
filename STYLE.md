@@ -1,4 +1,4 @@
-# Vix Programming Language Style Guide
+# Gix Programming Language Style Guide
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -13,7 +13,7 @@
 
 ## Introduction
 
-This style guide defines the recommended coding conventions for the Vix programming language. Following these guidelines will help maintain consistency, readability, and maintainability across Vix codebases.
+This style guide defines the recommended coding conventions for the Gix programming language. Following these guidelines will help maintain consistency, readability, and maintainability across Gix codebases.
 
 **Conventions Used:**
 - ✅ **Good** - Recommended practice
@@ -24,7 +24,7 @@ This style guide defines the recommended coding conventions for the Vix programm
 
 ## Comments
 
-Vix supports single-line comments using the `//` syntax.
+Gix supports single-line comments using the `//` syntax.
 
 ### Syntax
 
@@ -178,7 +178,7 @@ Proper formatting of control flow statements enhances readability.
 
 ### If Statements
 
-Vix supports both single-line and multi-line `if` statements.
+Gix supports both single-line and multi-line `if` statements.
 
 #### Single-Line Format
 
@@ -435,7 +435,7 @@ Following this style guide will help you write clean, consistent, and maintainab
 - Consistency is key
 - When in doubt, favor clarity over brevity
 
-Happy coding in Vix! 🚀
+Happy coding in Gix! 🚀
 
 v = -1 + -1 + 1 + 1 = 2
 

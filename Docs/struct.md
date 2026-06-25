@@ -1,9 +1,9 @@
 # What is struct?
 A struct is a custom data type that groups together variables of different types under a single name. It is similar to a class, but it does not support inheritance or methods. Structs are declared using the `struct` keyword followed by the struct name and a list of fields. Each field is separated by a comma. The body is closed with the `end` keyword.
 
-A struct's Field is defined using the `field_name: field_type` syntax. The field type can be any valid type in **vix**. Feilds are immutuable by default and private by default. To make a field mutable you need to use the `var` keyword before the field name. Example:
+A struct's Field is defined using the `field_name: field_type` syntax. The field type can be any valid type in **gix**. Feilds are immutuable by default and private by default. To make a field mutable you need to use the `var` keyword before the field name. Example:
 
-```vix
+```gix
 struct Point
     x: int // immutable field
     var y: int // mutable field
@@ -15,7 +15,7 @@ end
 ### Fields Usage
 Fields in the structers are declared automaticlly as **immutable** and **private** form. To declare a field you need to add the visiblity type e.g `mutable( var )` `immutable ( nothing )` then select the field name and shouldn't there is another field with the same name otherwise that will be declared as an error. And Finally select the Type via `: Type` Final form: `visiblity field_name: Type`. Example blueprint:
 
-```vix
+```gix
 // Declaring a structer
 struct Example
     a: int
@@ -36,7 +36,7 @@ end
 #### Declaring via Variables
 Fields can be declared directly via a variable `let field_example = p.field` and if the variable/field is mutable that allow you to change it. To use the field you need to be declared the structer in another variable already `let p = Point`. You cannot use it directly otherwise that will be declared as a error. Example BluePrint usage:
 
-```vix
+```gix
 sturct Point
     y: int
     x: int
@@ -56,7 +56,7 @@ print(y_field) // will print 5
 #### Declaring via classes
 Fields can be declared via classes `self.field`. Only when the structer is connected to the class it self. Fields are declared are not modifiable only if the field is already mutable. Followed by this blue print:
 
-```vix
+```gix
 struct Point
     var y: int
     x: int
@@ -85,7 +85,7 @@ end
 
 #### Declaring via Struct literal 
 Fields can be declared and being in default state `Struct { field = 0 }`. This make the field defaulted and modifiable only when it's mutable. Cannot default the fields more then once. Example blue print
-```vix
+```gix
 struct Point
     x: int
     y: int
@@ -111,7 +111,7 @@ func example()
 #### Declaring Nested Fields
 Structers can be declared inside another structers fields `field = AnotherStructer` and this called **Nested Fields**. This allow you to declare any structer inside another structers fields and it's allow you to use all fields in the other structers from the field it self `field.other_structer_field`. This can be stacked to infinity amout of structers e.g you can do `field.another_structer.another_structer` etc... infinity.
 
-```vix
+```gix
 struct Example
     p: Point // Another structer.
 struct Point
@@ -134,8 +134,8 @@ end
 
 Visiblity Applies here. For private fields you cannot use them as `Nested Fields`. Like declaring a structer inside a field and trying to use that struct's fields but it's private. This will declare as an error beacuse it's private `field.another_structer.private_field`. Followed by this blueprint example:
 
-```vix
-// Main.vix
+```gix
+// Main.gix
 public struct Math // public structer
     public a: int // Public field
     b: int // private field
@@ -146,7 +146,7 @@ public struct Point // public structer
     public x: Math // public field x pointing to Math
 end
 
-// Example.vix
+// Example.gix
 import Point
 
 let p = Point {
@@ -158,8 +158,8 @@ let p = Point {
 
 > **Note**: If you declared structer and used inside the fields another structers but private. This operation is allowed and u can still use the private structer. Example
 
-```vix
-// Main.vix
+```gix
+// Main.gix
 
 struct Math // Private structer
     // fields
@@ -169,7 +169,7 @@ struct Point
     m = Math // This allowed
 end
 
-// Example.vix
+// Example.gix
 import Point
 
 let p = Point {
@@ -180,7 +180,7 @@ let p = Point {
 #### Usage Of Nested Fields
 Nasted Fields usage is by getting the structer fields throught the structer field it self `field.another_structer.field`. And this can be done throught **Struct literal** By using the field needed and after adding `=` with the structer Name then opening `{}`, `.field = StructerName {}`.  Here blue print of the usage
 
-```vix
+```gix
 struct Math
     a: int
     b: int
@@ -211,7 +211,7 @@ let p = Point {
 ### Default field value
 Structer fields can have the type but default value in the structer it self too `field: Type = Value`. This will make the value is always defaulted and can be changed only if the field is `mutable` Example followed by this blue print:
 
-```vix
+```gix
 struct Point
     y: int = 3
     var x: int = 5
@@ -230,13 +230,13 @@ Point {
 > Structers can be declared by multi ways and usage is the same from example variables/directly/classes/import and much more. Here different between all the types:
 
 - `variable` — Struct can be declared via a variable like `let my_structer = MyStructer`. And structer is modifable to the variable. Only if the field is mutable
-- `classes` — Struct can be used in vix [`classes`](https://vixlanguage.github.io/docs/class) and use the fields via `self.field` keyword
-- `importing` — Struct can be declared/included via [`import`](https://vixlanguage.github.io/docs/import#structers) only if structer is public. And use all public fields.
+- `classes` — Struct can be used in gix [`classes`](https://gixlanguage.github.io/docs/class) and use the fields via `self.field` keyword
+- `importing` — Struct can be declared/included via [`import`](https://gixlanguage.github.io/docs/import#structers) only if structer is public. And use all public fields.
 
 #### Declaring Via variable
 Structers can be declared via a `vaiarable` and the structer will be used the same and all changes will be declared only inside the variable it self. Example changing the value is only effect the variable that use the structer. Structers can be declared as a variable Type `let ex: Example_Sturct = Example_Struct {}` or via the value directly `let ex = Example_Struct`. Followed by this example:
 
-```vix
+```gix
 struct Example
     a: int
     b: int
@@ -263,7 +263,7 @@ let ex = Example_Struct {
 
 Variables can declare a Structer inside their `Type`/`Value` and be used later `let my_structer = My_Struct`. And u can default the value too directly via `{}` or accesing the field using `my_structer_variable.field`. Followed by this example
 
-```vix
+```gix
 struct Point
     var a: int
     var b: int
@@ -287,7 +287,7 @@ p2.a = 3
 p2.b = 4
 ```
 > **Warning**: You cannot modify a structer field if it's not `mutable` otherwise that will be declared as a error. Example
-```vix
+```gix
 struct Point
     var a: int
     b: int
@@ -300,9 +300,9 @@ p.b = 30 // Error: field is not mutable
 ```
 
 #### Declaring Via Class
-Structers can be used inside a class too. Vix [classes](https://vixlanguage.github.io/class) are allowed to be inculded with a structer `Class MyStructer()`. In the class all fields are accesable via `self.field` but modifiable only if the field is `mutable`. Followed by this Example:
+Structers can be used inside a class too. Gix [classes](https://gixlanguage.github.io/class) are allowed to be inculded with a structer `Class MyStructer()`. In the class all fields are accesable via `self.field` but modifiable only if the field is `mutable`. Followed by this Example:
 
-```vix
+```gix
 struct Example // include the structer
     var a: int // mutable field
     b: int
@@ -339,8 +339,8 @@ end
 #### Declaring Via import
 Structers can be imported only if they **public**. By importing a structer, you have full accese to the public fields only. Class can be used with public structers if they not connected to another one already and use all fields even the onces are not public. `import MyStruct`. After importing you can use the struct normally like included in the file the structer included from. And you can import a struct via libraries too. Followed by this example:
 
-```vix
-// >> Main.vix
+```gix
+// >> Main.gix
 public struct Example
 --------------------- Import a public structer
     public a: int // Public field 
@@ -366,7 +366,7 @@ let ex = Example
 print(ex.a) // will print 0
 print(ex.b) // will print 0
 
-// >> Example.vix
+// >> Example.gix
 import Example
 
 class Example()
@@ -399,7 +399,7 @@ print(ex.b) // Error. Field are private
 #### Public Visibility
 Structers are privated by default means the structer cannot be imported from another file and visible for only current file. To make a struct public you need to use the `public` keyword before the struct definition. And by default all fields are private and cannot be defined even if the structer it self is public. To make a field public you need to use the `public` keyword before the field name. Example:
 
-```vix
+```gix
 public struct Point
 ------------------- // public struct
     public x: int // public field
@@ -412,7 +412,7 @@ print(Point.y) // OK: y is in same file
 
 - You cannot accese private struct/fields from another file even if the struct is public. Followed by this example:
 
-```vix
+```gix
 import Point // will be important beacuse 'Point' is public
 
 print(Point.y) // OK: y is public
@@ -422,7 +422,7 @@ print(Point.x) // Error: x is private
 #### Private Visiblity
 Structers by default are always consern as **private** visiblity. This means the struct cannot be accesed outside the current file. Fields in the struct are too private by default and cannot be used even if the struct is already defined as **public**. To define a private struct you need to use the keyword `struct` only no keyword before it. However structers are allowed to be used with "class" even if they are private and accese the fields using `self` keyword and outside the struct you can use the field. Example usage:
 
-```vix
+```gix
 struct Point 
 ------------ // Private struct
     x: int // private field
@@ -449,7 +449,7 @@ print(Point.y)
 ```
 > **Note**: Private structers make the class automaticlly private. Cannot define a private struct with public function example:
 
-```vix
+```gix
 struct Point
     x: int
     y: int
@@ -487,7 +487,7 @@ print(Point.y) // Error struct is private
 #### Globle Visiblity
 Structers are allowed to be globle too. It's not same way as including a variable or a function using `local` keyword. Structers are doing that with different way. By implementing the structer with any visiblity can be private/public and connecting it to the globle variable example:
 
-```vix
+```gix
 struct Point
     x: int
     y: int
@@ -504,15 +504,15 @@ example()
 ```
 
 > **Warning**: Fields are public can be accesed if the globle variable is public too example:
-```vix
-// Main.vix:
+```gix
+// Main.gix:
 struct Example
     a: int
     b: str
 end
 
 public local ex = Example
-// Example.vix:
+// Example.gix:
 
 func example()
     print(ex.a) // will print 0
@@ -520,4 +520,3 @@ func example()
 end
 
 example()
-```

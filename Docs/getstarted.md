@@ -1,31 +1,24 @@
 # Get Started
 
-> Vix programming language starting guide. If this is your first time trying Vix, this will explain exactly what you need to get started. If you haven't seen our overview yet, it will help you understand the language better check it out [here](https://vixlanguage.github.io/docs/overview).
-
+> Gix programming language starting guide. If this is your first time trying Gix, this will explain exactly what you need to get started.
 
 ---
 
-
 ## Installation
 
-**Step 1- Install Vix**  
-Download and install Vix from the [installer page](https://vixlanguage.github.io/install). Also, you can check out our playground, try vix without installing it! [playground](https://vixlanguage.github.io/playground).
+**Step 1- Install Gix**  
+Download and install Gix from the installer page.
 
 Once installed, verify it works by running:
 
 ```powershell
-vix --version
+gix --version
 ```
 
 **Step 2 - Install the LPS (Language Programming Server)**  
-Visit the [LPS installer page](https://vixlanguage.github.io/install/lps), or search for `vix programming language` in your IDE's extension marketplace. A [VS Code extension](https://marketplace.visualstudio.com/VSCode) is also officially available.
-
--> Installer source code: [GitHub](https://github.com/vix-programing-language/installer)  
--> LPS source code: [GitHub](https://github.com/vix-programing-language/lps)  
--> VS Code installation: [VS Code](https://)
+Visit the LPS installer page, or search for `gix programming language` in your IDE's extension marketplace.
 
 ---
-
 
 ## Prerequisites
 Make sure you have all of the following requirements. The tools below will be installed automatically if not already present:
@@ -33,42 +26,42 @@ Make sure you have all of the following requirements. The tools below will be in
 - Development tools required by VS
 - At least 5 GB of free storage
 
-Vix supports all major operating systems:
+Gix supports all major operating systems:
 - [Linux](https://kernel.org)
 - [Windows](https://microsoft.com/windows)
 - [macOS](https://apple.com/macos)
 
-And the following architectures: x86, ARM, and RISC-V. Vix also supports custom operating systems if you compile the compiler from source: [vix compiler on GitHub](https://github.com/vix-programing-language/vix-programing-language).
+And the following architectures: x86, ARM, and RISC-V.
 
 ---
 ## Is up to date?
-To make sure you're using latest vix compiler, run in terminal:
+To make sure you're using latest gix compiler, run in terminal:
 ```powershell
-vix update # update if avaiable
-vix version # current version/update
+gix update # update if avaiable
+gix version # current version/update
 ```
 
 ## Your First Program
 
-Create a file called `main.vix` and add the following code:
+Create a file called `main.gix` and add the following code:
 
-```vix
+```gix
 import * from io
 
 func main()
-    print("Hello, my first program in Vix!")
+    print("Hello, my first program in Gix!")
 end
 ```
 
 Then open a terminal and run:
 
 ```powershell
-vix run main.vix
+gix run main.gix
 ```
 
 You should see:
 
-> Hello, my first program in Vix!
+> Hello, my first program in Gix!
 
 ## Learning
-Learning vix can be quit simple. The syntax and functionality of the language would make it for everyone to learn easily! if you want to learn check out our [docs](https://vixlanguage.github.io/docs) and if you have any question, don't hastotate and join our discord server and ask whatever you want and we'll be there for you! [click here](https://discord.gg/CAemjRc4ya) to join!
+Learning gix can be quit simple. The syntax and functionality of the language would make it for everyone to learn easily! if you want to learn check out the docs and if you have any question, join our discord server and ask whatever you want!

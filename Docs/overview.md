@@ -2,11 +2,11 @@
 
 ## Features
 
-Vix is a typed, compiled programming language built on [**LLVM**](https://llvm.org), designed for simplicity and control from high-level work like compilers and applications, to low-level work like operating systems, kernels, and firmware with performance comparable to C/C++.
+Gix is a typed, compiled programming language built on [**LLVM**](https://llvm.org), designed for simplicity and control from high-level work like compilers and applications, to low-level work like operating systems, kernels, and firmware with performance comparable to C/C++.
 
-Vix gives you full control with no runtime costs, and optionally supports automatic memory management via [ARC](https://vixlanguage.github.io/docs/arc). Unlike C++, Vix lets choose between manual memory management or optional ARC at runtime. You have complete control over your code, inline assembly, compiler output, and program behavior making it ideal for systems programming, especially [**OS development**](https://en.wikipedia.org/wiki/Operating_system), as well as high-level application development with optional ARC.
+Gix gives you full control with no runtime costs, and optionally supports automatic memory management via ARC. Unlike C++, Gix lets choose between manual memory management or optional ARC at runtime. You have complete control over your code, inline assembly, compiler output, and program behavior making it ideal for systems programming, especially [**OS development**](https://en.wikipedia.org/wiki/Operating_system), as well as high-level application development with optional ARC.
 
-```vix
+```gix
 func main()
     print("Hello, world!")
 end
@@ -16,63 +16,53 @@ end
 
 ## Installation & LPS
 
-Vix is easy to install. Head to the [installer page](https://vixlanguage.github.io/install)
-and follow the steps via the [installation guide](https://vixlanguage.github.io/install/help).
+Gix is easy to install. Head to the installer page and follow the steps via the installation guide.
 
 The following tools are required and will be installed automatically if not already present:
 - LLVM version 21.x
 - Development tools required by VS
 - At least 5 GB of free storage
 
-To install the Vix LPS (Language Programming Server), visit the [LPS installer page](https://vixlanguage.github.io/install/lps), or search for `vix programming language` in your IDE's extension marketplace. A [VS Code extension](https://marketplace.visualstudio.com/VSCode) is also officially available.
-
--> Installer source code: [GitHub](https://github.com/vix-programing-language/installer)  
--> LPS source code: [GitHub](https://github.com/vix-programing-language/lps)
+To install the Gix LPS (Language Programming Server), visit the LPS installer page, or search for `gix programming language` in your IDE's extension marketplace.
 
 ---
 
 ## C Library Compatibility
 
-Vix has full support for [C libraries](https://vixlanguage.github.io/docs/library/c),
-giving you access to the entire C ecosystem with no extra setup. Example:
+Gix has full support for C libraries, giving you access to the entire C ecosystem with no extra setup. Example:
 
-```vix
+```gix
 import c_lib
 
 c_lib.some_function()
 ```
 
-Installing a C library is straightforward using the Vix CLI:
+Installing a C library is straightforward using the Gix CLI:
 
 ```powershell
-vix install c_lib_name -c
+gix install c_lib_name -c
 ```
 
 ---
 
 ## Supported Platforms
 
-Vix supports all major operating systems:
+Gix supports all major operating systems:
 - [Linux](https://kernel.org)
 - [Windows](https://microsoft.com/windows)
 - [macOS](https://apple.com/macos)
 
-And the following architectures: x86, ARM, and RISC-V. Vix also supports custom operating
-systems if you compile the compiler from source:
-[vix compiler on GitHub](https://github.com/vix-programing-language/vix-programing-language).
-
--> Full platform list and installation: [install](https://vixlanguage.github.io/install)
+And the following architectures: x86, ARM, and RISC-V. Gix also supports custom operating systems if you compile the compiler from source.
 
 ---
 
 ## Language Features
 
-### VTS - Vix Type System
+### GTS - Gix Type System
 
-Vix includes the [**VTS**](https://vixlanguage.github.io/docs/typesystem) (Vix Type System),
-which automatically infers types at compile time in most cases, across your entire codebase. This works in both default mode and ARC mode.
+Gix includes the **GTS** (Gix Type System), which automatically infers types at compile time in most cases, across your entire codebase. This works in both default mode and ARC mode.
 
-```vix
+```gix
 func example(a, b) // a, b inferred as int, return type inferred as int
     return a + b
 end
@@ -87,12 +77,9 @@ end
 
 ### Memory Safety
 
-Vix provides memory safety features through the
-[**core library**](https://vixlanguage.github.io/docs/core) and
-[**standard library**](https://vixlanguage.github.io/docs/std), including `Result`,
-`Option`, smart pointers, and more all with minimal runtime cost.
+Gix provides memory safety features through the **core library** and **standard library**, including `Result`, `Option`, smart pointers, and more all with minimal runtime cost.
 
-```vix
+```gix
 func example(a, b): Result[int, str]
     if a > b then
         return Ok(10)
@@ -116,10 +103,9 @@ func main()
 end
 ```
 
-In Vix, everything is immutable by default. Use `let` for immutable bindings and `var`
-for mutable ones:
+In Gix, everything is immutable by default. Use `let` for immutable bindings and `var` for mutable ones:
 
-```vix
+```gix
 let a = 30 // immutable
 var b = 3  // mutable
 

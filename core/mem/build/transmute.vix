@@ -1,5 +1,0 @@
-public unsafe func transmute[T, U](value: T): U
-    var out: U = 0 as U
-    memcpy(&out as ptr[void], &value as ptr[void], size_of[T]())
-    return out
-end

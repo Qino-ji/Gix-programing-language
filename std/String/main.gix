@@ -1,0 +1,42 @@
+
+public struct String:
+    var data = *char
+    var len = uint
+    var cap = uint
+end
+
+class String()
+    public func new(): String
+        return String {
+            data = 0 as *char,
+            len  = 0,
+            cap  = 0,
+        }
+    end
+
+    public func init(cstr: *char): String
+        var src_len: uint = length(cstr)
+        var initial_cap = src_len + 16
+
+        if initial_cap < 8 then
+            initial_cap = 8
+        end
+
+        var s = String {
+            data = alloc_mem(initial_cap) as *char,
+            len  = src_len,
+            cap  = initial_cap,
+        }
+
+        memcopy(s.data as *void, cstr as *void, src_len)
+
+        return s
+    end
+
+    public func free(self)
+        free(self.data as *void)
+        self.data = 0 as *char
+        self.len = 0
+        self.cap = 0
+    end
+end

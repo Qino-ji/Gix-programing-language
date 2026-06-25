@@ -1,0 +1,3 @@
+public trait Drop:
+    func drop(var self)
+end

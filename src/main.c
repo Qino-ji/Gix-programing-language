@@ -654,7 +654,7 @@ for (size_t i = 0; i < stmt.data.extern_.funcs_count; i++) {
 
 int main(int argc, char **argv) {
     if (argc < 3) {
-        printf("Usage: vix run <filename.vix>\n");
+        printf("Usage: gix run <filename.gix>\n");
         return 1;
     }
 
@@ -760,7 +760,7 @@ strncpy(base_name, filename, sizeof(base_name) - 1);
 base_name[sizeof(base_name) - 1] = '\0';
 
 char *dot = strrchr(base_name, '.');
-if (dot && strcmp(dot, ".vix") == 0) {
+if (dot && strcmp(dot, ".gix") == 0) {
     *dot = '\0';
 }
 

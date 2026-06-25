@@ -65,7 +65,7 @@ char* fp_build_root(void) {
 
     char* local = dir_get_env("LOCALAPPDATA");
     if (!local) return NULL;
-    char* result = dir_build_path(local, "vix", "build", NULL);
+    char* result = dir_build_path(local, "gix", "build", NULL);
     free(local);
     return result;
 }
@@ -123,7 +123,7 @@ char* fp_data_path(const char* project, const char* source) {
     size_t cap = strlen(source) + 16;
 
     ARR_ENSURE_CAP(filename, cap);
-    snprintf(filename.data, cap, "%s.vix.tmp", source);
+    snprintf(filename.data, cap, "%s.gix.tmp", source);
     char* path = dir_build_path(root, project, "data", filename.data, NULL);
     ARR_FREE(filename);
     free(root);
@@ -264,7 +264,7 @@ char* func_uint_path(const char* project, const char* source, const char* func_n
 
 char* fp_snapshot_path(const char* project) {
     char* root = fp_build_root();
-    char* path = dir_build_path(root, project, "data", "snapshot.vix.tmp", NULL);
+    char* path = dir_build_path(root, project, "data", "snapshot.gix.tmp", NULL);
     free(root);
     return path;
 }

@@ -6,7 +6,7 @@ Enums are custom data types that can have multiple variants. Each variant can ha
 ---
 
 #### Naming Conventions
-By convention, enum names and variant names should use **PascalCase** (e.g., `MyEnum`, `SomeVariant`). This is not enforced by the compiler but is the recommended style throughout Vix.
+By convention, enum names and variant names should use **PascalCase** (e.g., `MyEnum`, `SomeVariant`). This is not enforced by the compiler but is the recommended style throughout Gix.
 
 ---
 
@@ -30,7 +30,7 @@ The syntax for calling an enum variant varies based on the variant type. Here ar
 #### Enum-Level Methods
 You can attach methods to the enum itself (not to a specific variant) using a `do...end` block inside the enum body. These methods belong to the enum as a whole and can be called using `EnumName.function_name()`.
 
-```vix
+```gix
 enum Direction
     North,
     South,
@@ -57,7 +57,7 @@ print(d.opposite()) // will print South
 #### Generic Usage
 Enums can be generic by using the `[T]` syntax after the enum name, e.g. `enum Example[T]`. Multiple generic types are supported too, like `enum Example[T, E]`, and used like `Example[int32]` or `Example[int32, str]` and so on. This can be done by directly assigning the enum to a variable `let s = EnumName[int32, int32]`, or in a function return type `func example(): EnumName[int32, int32]`, and so on. Variants can also be called directly as `Ok(10)` or `Err("error")` as an optional approach. Example usage:
 
-```vix
+```gix
 enum Result[T, E]
     Ok(T),
     Err(E)
@@ -71,7 +71,7 @@ print(example()) // will print Ok(10)
 ```
 
 > **Note**: Generic enums can be constrained using Philosophy with the syntax `enum Example[T: SomePhilosophy]`. This ensures the generic type `T` must implement `SomePhilosophy`. Example:
-> ```vix
+> ```gix
 > enum Wrapper[T: Printable]
 >     Some(T),
 >     None
@@ -89,15 +89,15 @@ Enums have 3 types of visibility: `public`, `private`, and `local`. Enums are `p
 
 **Public enum**   add the `public` keyword before `enum`:
 
-```vix
-// file.vix
+```gix
+// file.gix
 public enum EnumName
     Variant
 end
 ```
 
-```vix
-// main.vix
+```gix
+// main.gix
 import EnumName from file
 
 EnumName.Variant          // Using the enum variant
@@ -108,8 +108,8 @@ EnumName.Variant.function() // Using the enum variant function
 
 **Private enum**   no keyword required (default behavior):
 
-```vix
-// file.vix
+```gix
+// file.gix
 enum EnumName
     Variant
 end
@@ -117,15 +117,15 @@ end
 EnumName.Variant // visible here inside the same file
 ```
 
-```vix
-// main.vix
+```gix
+// main.gix
 EnumName.Variant // Error: EnumName is not visible here
 ```
 
 **Local enum**   add the `local` keyword before `enum`:
 
-```vix
-// library/library.vix
+```gix
+// library/library.gix
 local enum EnumName
     Variant
 end
@@ -133,13 +133,13 @@ end
 EnumName.Variant // visible here inside the same library
 ```
 
-```vix
-// library/test.vix
+```gix
+// library/test.gix
 EnumName.Variant // visible here inside the same library
 ```
 
-```vix
-// root/main.vix
+```gix
+// root/main.gix
 EnumName.Variant // Error: EnumName is not visible here
 ```
 
@@ -148,7 +148,7 @@ EnumName.Variant // Error: EnumName is not visible here
 #### Enum as Function Parameter
 Enums can be passed as parameters into functions just like any other type. The parameter type is the enum name.
 
-```vix
+```gix
 enum Direction
     North,
     South,
@@ -170,7 +170,7 @@ print(describe(Direction.North)) // will print Going north
 
 Generic enum parameters work the same way:
 
-```vix
+```gix
 enum Result[T, E]
     Ok(T),
     Err(E)
@@ -192,7 +192,7 @@ handle(Err("oops"))  // will print oops
 #### Nested Enums
 A variant's field can hold another enum type. This is fully supported and works the same as any other field type.
 
-```vix
+```gix
 enum Color
     Red,
     Green,
@@ -210,7 +210,7 @@ print(s) // will print Circle(10, Red)
 
 Nested enums can also be matched against in `match` or `if` statements:
 
-```vix
+```gix
 match s
     case Circle(radius, color) do
         print(radius)
@@ -227,7 +227,7 @@ end
 #### Recursive Enums
 Enums can reference themselves in their variant fields. No special keyword or pointer type is needed   recursive enums work directly.
 
-```vix
+```gix
 enum List
     Node(value: int32, next: List),
     Empty
@@ -238,7 +238,7 @@ let list = List.Node(1, List.Node(2, List.Node(3, List.Empty)))
 
 You can traverse a recursive enum using `match`:
 
-```vix
+```gix
 func sum(list: List): int32
     match list
         case Node(value, next) do return value + sum(next)
@@ -254,7 +254,7 @@ print(sum(list)) // will print 6
 #### Class Usage
 Classes can use enums and access their variants using `ClassName.EnumName.variant`, or inside the class using `self`. Example usage:
 
-```vix
+```gix
 enum Example
     Yes(int32),
     No(int32)
@@ -271,7 +271,7 @@ print(Example().example()) // will print Yes(10)
 
 > **Note**: Classes can use generic enums too, using the same syntax: `EnumName[int32].variant`. Example:
 
-```vix
+```gix
 enum Result[T, E]
     Ok(T),
     Err(E)
@@ -291,7 +291,7 @@ print(Example().example()) // will print Ok(10)
 #### Declaring an Enum
 Enums can be declared through a variable `let a = SomeEnum` or by assigning a specific variant to a variable `let a = SomeEnum.Variant`. This allows you to use the enum or its fields like `a.Variant` or just `Variant`. Example syntax:
 
-```vix
+```gix
 enum EnumName
     Variant1,
     Variant2,
@@ -309,7 +309,7 @@ print(c) // will print Variant3
 
 Enums also allow you to change the declared variant of a mutable variable. Using `var` makes the variable mutable, so the variant can be reassigned. Using `let` makes it immutable.
 
-```vix
+```gix
 enum EnumName
     Variant1,
     Variant2,
@@ -329,7 +329,7 @@ b = EnumName.Variant3 // Error too
 
 Enums work as return types in classes or functions by placing the enum name after the `:` in the return type position:
 
-```vix
+```gix
 enum EnumName
     Variant1,
     Variant2,
@@ -345,7 +345,7 @@ print(example()) // will print Variant1
 
 This also works with `Self` inside a class:
 
-```vix
+```gix
 class Example()
     func example(self): Self
         return EnumName.Variant1
@@ -362,7 +362,7 @@ Enums can be used in `match` statements with `case Variant(value) do`, and in `i
 
 > **Note**: The compiler does **not** return an error or warning when a `match` statement does not cover all variants. It is your responsibility to handle all cases you need.
 
-```vix
+```gix
 enum Example
     Yes(int32),
     No(int32)
@@ -395,7 +395,7 @@ end
 #### Using Enums in For and While Statements
 Enums can be used with `for` and `while` statements.
 
-```vix
+```gix
 enum Example
     Yes(int32),
     No(int32)
@@ -421,7 +421,7 @@ end
 #### Enum Operations
 Enums can be used with operators like `==`, `!=`, `!`, `&&`, `||`, and more. Comparisons can also check field values.
 
-```vix
+```gix
 enum Example
     Yes(int32),
     No(int32)
@@ -443,10 +443,10 @@ Equality checks compare both the variant and its field values, so `Example.Yes(1
 ---
 
 #### Sum Types (Algebraic Data Types)
-Enums in Vix can be used as Sum Types (Algebraic Data Types). Here is a summary of all the declaring and calling forms:
+Enums in Gix can be used as Sum Types (Algebraic Data Types). Here is a summary of all the declaring and calling forms:
 
 **Default variant (no fields):**
-```vix
+```gix
 enum EnumName
     Variant1,
     Variant2,
@@ -457,7 +457,7 @@ EnumName.Variant1 // Calling the variant
 ```
 
 **Variant with fields:**
-```vix
+```gix
 enum EnumName
     Variant1(field1: type1, field2: type2, ...),
     Variant2
@@ -468,7 +468,7 @@ EnumName.Variant2              // Calling the variant without fields
 ```
 
 **Variant with associated functions:**
-```vix
+```gix
 enum EnumName
     Variant1 do
         func function_name(self)
@@ -481,7 +481,7 @@ EnumName.Variant1.function_name() // Calling the variant function
 ```
 
 **Variant with fields and associated functions:**
-```vix
+```gix
 enum EnumName
     Variant1(field1: type1, field2: type2, ...) do
         func function_name(self)
@@ -494,7 +494,7 @@ EnumName.Variant1(10, 50, 30).function_name() // Calling the variant with fields
 ```
 
 **Tuple variants with direct shorthand calling:**
-```vix
+```gix
 enum Example
     Yes(int32),
     No(int32)
@@ -513,7 +513,7 @@ print(example()) // will print Yes(10)
 Enums can be stored in arrays and collections like any other type. A fixed array of an enum uses the `EnumName[]` syntax, and a generic collection type uses `Something[EnumName]`.
 
 **Fixed array:**
-```vix
+```gix
 enum Status
     Active,
     Inactive,
@@ -529,7 +529,7 @@ end
 ```
 
 **With fields:**
-```vix
+```gix
 enum Example
     Yes(int32),
     No(int32)
@@ -546,7 +546,7 @@ end
 ```
 
 **Generic collection type**   using `Something[EnumName]` for types that wrap or hold enums:
-```vix
+```gix
 enum Example
     Yes(int32),
     No(int32)
@@ -560,7 +560,7 @@ let items: List[Example] = List[Example].new()
 #### Shadowing Imported Enums
 Declaring a local enum or variant with the same name as an imported one is a **compiler error**. There is no shadowing   both names must be unique within the file.
 
-```vix
+```gix
 import Result from result
 
 enum Result   // Error: enum Result already declared from import "Result"
@@ -571,7 +571,7 @@ end
 
 This also applies if the imported enum has variants whose names clash with a local enum name:
 
-```vix
+```gix
 import Result from result // Result has Ok and Err variants
 
 enum Ok      // Error: Ok already declared from import "Result"
@@ -586,7 +586,7 @@ To avoid conflicts, either rename your local enum or use a different import alia
 #### Empty Enums
 Declaring an enum with no variants is allowed but will produce a **compiler warning**, similar to declaring an unused variable or enum. An empty enum cannot be instantiated since there are no variants to use.
 
-```vix
+```gix
 enum Empty   // Warning: enum Empty has no variants
 end
 
@@ -601,7 +601,7 @@ Empty enums are valid as placeholder types during development, but should be giv
 Enums have strict type safety rules that must be followed:
 
 **Cannot redeclare an enum that already exists or was imported:**
-```vix
+```gix
 import AnotherExample
 
 enum Example
@@ -621,7 +621,7 @@ Example = 10 // Error: cannot assign over enum
 ```
 
 **Cannot change an immutable enum variant:**
-```vix
+```gix
 enum Example
     Yes(int32),
     No(int32)
@@ -632,7 +632,7 @@ example = Example.No(10) // Error: cannot change immutable enum variant
 ```
 
 **Cannot use a variant that has not been declared:**
-```vix
+```gix
 enum Example
     Yes(int32),
     No(int32)
@@ -642,7 +642,7 @@ let example2 = Example.Maybe(10) // Error: enum variant Maybe not declared
 ```
 
 **Cannot declare more than one variant with the same name in the same enum:**
-```vix
+```gix
 enum Example
     Yes(int32),
     Yes(int32) // Error: enum variant Yes already declared
@@ -650,8 +650,7 @@ end
 ```
 
 **Cannot declare more than one field with the same name in the same variant:**
-```vix
+```gix
 enum Example
     Yes(a: int32, a: int32) // Error: field a already declared
 end
-```

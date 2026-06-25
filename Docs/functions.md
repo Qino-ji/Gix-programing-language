@@ -1,8 +1,8 @@
 # What is Functions
 
-Functions are reusable blocks of code defined with the `func` keyword in Vix. They are used to perform a specific task and can be called from anywhere in the program depending on their visibility. Functions can take parameters, return values, and be passed around like any other value.
+Functions are reusable blocks of code defined with the `func` keyword in Gix. They are used to perform a specific task and can be called from anywhere in the program depending on their visibility. Functions can take parameters, return values, and be passed around like any other value.
 
-```vix
+```gix
 func function_name(param_1: type, param_2: type): type
     return something
 end
@@ -13,14 +13,14 @@ end
 ## Declaring a Function
 
 To declare a function you need the `func` keyword followed by the function name and `()`. Parameters go inside the parentheses and the return type goes after the closing parenthesis.
-```vix
+```gix
 func add(a: int32, b: int32): int32
     return a + b
 end
 ```
 
 To call the function:
-```vix
+```gix
 let i = add(10, 50)
 print(i) // 60
 ```
@@ -30,7 +30,7 @@ print(i) // 60
 ## Parameters
 
 Parameters are values passed into a function. Each parameter can have a specific type declared with `: type` after the parameter name. Parameters are optional   a function can have no parameters at all.
-```vix
+```gix
 func greet()
     print("Hello!")
 end
@@ -41,7 +41,7 @@ end
 ```
 
 When you call a function and pass values to it, those values are bound to the parameter names inside the function. The original variable names outside the function do not matter inside it.
-```vix
+```gix
 func add(a, b)
     print(a + b)
 end
@@ -57,7 +57,7 @@ add(x, y) // x becomes a, y becomes b inside the function
 ## Return Type
 
 The return type declares what type of value the function is allowed to return. It is placed after the closing `)` of the parameter list. If a function returns a value that does not match the declared return type, the typechecker will produce an error.
-```vix
+```gix
 func add(a, b): str
     return a + b
     // ERROR: a + b produces int, but return type is str
@@ -70,7 +70,7 @@ end
 ```
 
 Return type is optional. A function with no declared return type automatically returns `void`   it performs an action without producing a value.
-```vix
+```gix
 func print_sum(a: int32, b: int32)
     print(a + b)
     // return type is void automatically
@@ -78,7 +78,7 @@ end
 ```
 
 Trying to assign the result of a void function to a variable will produce an error:
-```vix
+```gix
 func greet()
     print("Hello!")
 end
@@ -87,7 +87,7 @@ var result = greet() // ERROR: greet() returns void, cannot assign to variable
 ```
 
 You can also declare the return type as `void` explicitly, which behaves the same way:
-```vix
+```gix
 func greet(): void
     print("Hello!")
 end
@@ -98,7 +98,7 @@ end
 ## Returning a Value
 
 To return a value from a function use the `return` keyword. The returned value will be passed back to wherever the function was called from.
-```vix
+```gix
 func example(): int
     return 10
 end
@@ -112,7 +112,7 @@ print(a) // 10
 ## Early Return
 
 A function can return before reaching the end of its body. This is useful for guard clauses, validation, and avoiding deeply nested conditions.
-```vix
+```gix
 func divide(a: int32, b: int32): int32
     if b == 0 then
         return 0
@@ -122,7 +122,7 @@ end
 ```
 
 Multiple early returns are allowed:
-```vix
+```gix
 func classify(n: int32): str
     if n < 0 then return "negative" end
     if n == 0 then return "zero" end
@@ -137,7 +137,7 @@ Early returns make code easier to read by handling edge cases at the top of the 
 ## Calling a Function
 
 To call a function write its name followed by `()` with any arguments inside.
-```vix
+```gix
 func add(a: int32, b: int32): int32
     return a + b
 end
@@ -149,8 +149,8 @@ print(add(10, 50)) // 60
 
 ## Named Parameters
 
-Vix allows you to call a function with parameters in any order by naming them explicitly. Vix will automatically match each named argument to the correct parameter.
-```vix
+Gix allows you to call a function with parameters in any order by naming them explicitly. Gix will automatically match each named argument to the correct parameter.
+```gix
 func example(a, b, c)
     if a > b then
         return c
@@ -166,7 +166,7 @@ print(a) // 30
 ## Optional Parameters
 
 A parameter can be made optional by providing a default value using `=` after the parameter name. If the caller does not pass a value for that parameter, the default value is used instead.
-```vix
+```gix
 func example(a, b = 10)
     return a + b
 end
@@ -183,7 +183,7 @@ print(b) // 30
 ## Missing or Extra Parameters
 
 Calling a function with too few or too many arguments will trigger an error. The number of arguments passed must match the number of parameters the function declares unless a default value is provided.
-```vix
+```gix
 func example(a, b, c)
     if a > b then
         return c
@@ -200,10 +200,11 @@ print(c) // false, error
 ```
 
 ---
+
 ## Recursive Functions
 
-A recursive function is a function that calls itself. Vix supports recursion   a function can reference its own name inside its body.
-```vix
+A recursive function is a function that calls itself. Gix supports recursion   a function can reference its own name inside its body.
+```gix
 func factorial(n: int32): int32
     if n <= 1 then
         return 1
@@ -215,14 +216,14 @@ print(factorial(5)) // 120
 ```
 
 Recursion requires a base case   a condition that stops the function from calling itself forever. Without a base case the program will crash due to a stack overflow.
-```vix
+```gix
 func infinite(n: int32): int32
     return infinite(n - 1) // ERROR: no base case, infinite recursion
 end
 ```
 
 Recursive functions are commonly used for tree traversal, mathematical sequences, and divide-and-conquer algorithms:
-```vix
+```gix
 func fibonacci(n: int32): int32
     if n <= 1 then
         return n
@@ -237,15 +238,15 @@ print(fibonacci(10)) // 55
 
 ## Function as a Type
 
-Since functions and lambdas can be stored in variables and passed around, Vix treats functions as first-class values. The type of a function variable is declared using `func(param_types): return_type`.
-```vix
+Since functions and lambdas can be stored in variables and passed around, Gix treats functions as first-class values. The type of a function variable is declared using `func(param_types): return_type`.
+```gix
 var multiply: func(int32, int32): int32 = lambda a, b: a * b
 
 multiply(3, 4) // 12
 ```
 
 This also applies to parameters that expect a function value:
-```vix
+```gix
 func apply(value: int32, operation: func(int32): int32): int32
     return operation(value)
 end
@@ -254,14 +255,14 @@ apply(10, lambda x: x * 2) // 20
 ```
 
 A function with no parameters and no return type:
-```vix
+```gix
 var greet: func(): void = lambda: print("Hello!")
 
 greet() // Hello!
 ```
 
 Function types can also be stored in data structures:
-```vix
+```gix
 var operations: func(int32): int32[] = [
     lambda x: x + 1,
     lambda x: x * 2,
@@ -280,7 +281,7 @@ operations[2](10) // 7
 A higher-order function is a function that takes one or more functions as parameters or returns a function as its result. This is the formal pattern behind how lambdas are passed to functions like `map`, `filter`, and the error handling functions in `core/Option` and `core/Result`.
 
 Taking a function as a parameter:
-```vix
+```gix
 func apply(value: int32, operation: func(int32): int32): int32
     return operation(value)
 end
@@ -290,7 +291,7 @@ apply(5, lambda x: x + 10) // 15
 ```
 
 Returning a function:
-```vix
+```gix
 func multiplier(factor: int32): func(int32): int32
     return lambda x: x * factor
 end
@@ -303,7 +304,7 @@ triple(5) // 15
 ```
 
 Combining both   taking and returning functions:
-```vix
+```gix
 func transform(arr: int32[], fn: func(int32): int32): int32[]
     return arr.map(fn)
 end
@@ -318,8 +319,8 @@ transform(arr, lambda x: x + 10) // [11, 12, 13, 14, 15]
 
 ## Function Overloading
 
-Vix supports function overloading   multiple functions can share the same name as long as their parameter types are different. The typechecker resolves which version to call based on the arguments passed.
-```vix
+Gix supports function overloading   multiple functions can share the same name as long as their parameter types are different. The typechecker resolves which version to call based on the arguments passed.
+```gix
 func add(a: int32, b: int32): int32
     return a + b
 end
@@ -334,16 +335,16 @@ end
 
 add(1, 2)          // calls int32 version → 3
 add(1.0, 2.0)      // calls float version → 3.0
-add("hi", " vix")  // calls str version → "hi vix"
+add("hi", " gix")  // calls str version → "hi gix"
 ```
 
 Calling with mismatched types will produce an error:
-```vix
+```gix
 add(1, "hello") // ERROR: no overload matches (int32, str)
 ```
 
 Overloading also works with different parameter counts:
-```vix
+```gix
 func greet(): str
     return "Hello!"
 end
@@ -353,7 +354,7 @@ func greet(name: str): str
 end
 
 greet()      // "Hello!"
-greet("Vix") // "Hello, Vix!"
+greet("Gix") // "Hello, Gix!"
 ```
 
 > For functions that work across many types with the same logic, consider using [Generic Parameters](#generic-parameters) instead of writing multiple overloads.
@@ -362,9 +363,9 @@ greet("Vix") // "Hello, Vix!"
 
 ## Type Inference
 
-Vix has a smart and fast typechecker. It runs before code generation to check and infer types where possible. Parameter types and return types can often be inferred automatically from the values passed to the function.
+Gix has a smart and fast typechecker. It runs before code generation to check and infer types where possible. Parameter types and return types can often be inferred automatically from the values passed to the function.
 
-```vix
+```gix
 func add(a, b)
     return a + b
 end
@@ -378,7 +379,7 @@ var i = add(1, 2)
 
 ## Function Visibility
 
-Vix has 4 levels of function visibility that control where a function can be called from. Choosing the right visibility is important for encapsulation and API design.
+Gix has 4 levels of function visibility that control where a function can be called from. Choosing the right visibility is important for encapsulation and API design.
 
 | Keyword | Same File | Same Library | Other Files | Outside Library |
 |---|---|---|---|---|
@@ -386,9 +387,6 @@ Vix has 4 levels of function visibility that control where a function can be cal
 | none (private) | ✓ | ✗ | ✗ | ✗ |
 | `local` | ✓ | ✓ | ✗ | ✗ |
 | `extern` | ✓ | ✓ | ✓ | ✓ (dynamic lib only) |
-
-
-For more details on each visibility type see [local](https://vixlanguage.github.io/docs/local), [public](https://vixlanguage.github.io/docs/public), [private](https://vixlanguage.github.io/docs/private), [extern](https://vixlanguage.github.io/docs/extern).
 
 ### Public
 
@@ -400,19 +398,19 @@ Use `public` when you want to expose a function as part of your API or when othe
 ```
 root/
     src/
-        main.vix
-        other.vix
+        main.gix
+        other.gix
 ```
 
-**main.vix:**
-```vix
+**main.gix:**
+```gix
 public func add(a: int32, b: int32): int32
     return a + b
 end
 ```
 
-**other.vix:**
-```vix
+**other.gix:**
+```gix
 import add from main
 
 var result = add(10, 20)
@@ -420,7 +418,7 @@ printf("%d\n", result) // 30
 ```
 
 You can also call a public function from within the same file it was declared in:
-```vix
+```gix
 public func add(a: int32, b: int32): int32
     return a + b
 end
@@ -433,17 +431,17 @@ end
 When building a library, public functions form the public API that users of the library can call:
 ```
 mylib/
-    math.vix
-    utils.vix
+    math.gix
+    utils.gix
 ```
-```vix
-// math.vix
+```gix
+// math.gix
 public func multiply(a: int32, b: int32): int32
     return a * b
 end
 ```
-```vix
-// main.vix outside the library
+```gix
+// main.gix outside the library
 import multiply from mylib // ok, public is accessible outside library
 ```
 
@@ -452,8 +450,8 @@ import multiply from mylib // ok, public is accessible outside library
 Private is the default visibility when no keyword is used. A private function can only be called from within the same file it was declared in. It is completely invisible to other files even if they try to import it.
 
 Use private functions for internal helpers that are implementation details and should not be exposed to other files or users of your library.
-```vix
-// math.vix
+```gix
+// math.gix
 
 func clamp_internal(val: int32, min: int32, max: int32): int32
     if val < min then return min end
@@ -468,8 +466,8 @@ end
 ```
 
 Trying to access a private function from another file will always fail:
-```vix
-// other.vix
+```gix
+// other.gix
 import clamp_internal from math // ERROR: clamp_internal is private
 import safe_divide from math    // ok, safe_divide is public
 ```
@@ -484,14 +482,14 @@ Use `local` when you have helper functions that need to be shared across multipl
 ```
 root/
     mylib/
-        math.vix
-        utils.vix
+        math.gix
+        utils.gix
     src/
-        main.vix
+        main.gix
 ```
 
-**math.vix:**
-```vix
+**math.gix:**
+```gix
 local func internal_multiply(a: int32, b: int32): int32
     return a * b
 end
@@ -501,8 +499,8 @@ public func square(a: int32): int32
 end
 ```
 
-**utils.vix inside same library:**
-```vix
+**utils.gix inside same library:**
+```gix
 import internal_multiply from math // ok, same library
 
 public func cube(a: int32): int32
@@ -510,8 +508,8 @@ public func cube(a: int32): int32
 end
 ```
 
-**main.vix outside library:**
-```vix
+**main.gix outside library:**
+```gix
 import internal_multiply from mylib // ERROR: local, not accessible outside library
 import square from mylib            // ok, public
 import cube from mylib              // ok, public
@@ -522,14 +520,14 @@ import cube from mylib              // ok, public
 `extern` is a special visibility designed for dynamic libraries. An extern function can be called both from inside and outside the file, but it only works when the file is compiled as a dynamic library (`.dll` on Windows, `.so` on Linux).
 
 Use `extern` when you are building a dynamic library and want to expose functions to external programs or other languages like C, Python, etc.
-```vix
-// mylib.vix
+```gix
+// mylib.gix
 extern func compute(a: int32, b: int32): int32
     return a + b
 end
 ```
-```vix
-// main.vix
+```gix
+// main.gix
 import compute from mylib
 
 var result = compute(5, 10)
@@ -564,15 +562,15 @@ Lambda functions are anonymous functions that can be defined inline and passed a
 
 #### Syntax Variants
 
-Vix supports two ways to define a lambda:
+Gix supports two ways to define a lambda:
 
 Shorthand   for simple inline expressions:
-```vix
+```gix
 lambda params: body
 ```
 
 Full syntax   for typed or multi-line lambdas:
-```vix
+```gix
 func(params): return_type
     body
 end
@@ -581,7 +579,7 @@ end
 #### Parameters
 
 Lambdas can take zero, one, or multiple parameters:
-```vix
+```gix
 lambda: do_something()           // no params
 lambda x: x * 2                 // single param
 lambda a, b: a + b              // multiple params
@@ -590,7 +588,7 @@ lambda a, b: a + b              // multiple params
 #### Return Values
 
 Lambdas can return values either implicitly or explicitly with the `return` keyword:
-```vix
+```gix
 lambda a, b: a + b              // implicit return
 lambda a, b: return a + b       // explicit return (inside functions only)
 ```
@@ -598,7 +596,7 @@ lambda a, b: return a + b       // explicit return (inside functions only)
 #### Closures
 
 Lambdas can capture variables from their outer scope:
-```vix
+```gix
 var c = 10
 lambda a, b: a + b - c         // c is captured from the outer scope
 ```
@@ -606,7 +604,7 @@ lambda a, b: a + b - c         // c is captured from the outer scope
 #### Multi-line Lambdas
 
 Lambdas are not limited to a single line:
-```vix
+```gix
 lambda x:
     var result = x * 2
     return result
@@ -615,7 +613,7 @@ lambda x:
 #### Full Syntax in Depth
 
 The full syntax allows you to specify a return type and write multi-line bodies. It can be used as a function argument or stored in a variable:
-```vix
+```gix
 func add(func(a, b): int32
     return a + b
 end)
@@ -640,7 +638,7 @@ multiply(3, 4) // 12
 Use shorthand for simple operations. Use full syntax when you need type safety or a more complex body.
 
 #### Usage Examples
-```vix
+```gix
 var arr = [1, 2, 3, 4, 5]
 
 arr.map(lambda x: x * 2)              // transform
@@ -653,14 +651,14 @@ multiply(3, 4)                        // 12
 
 #### Error Handling
 
-Lambdas are central to error handling in Vix. The [core/Option](https://vixlanguage.github.io/docs/core/option) and [core/Result](https://vixlanguage.github.io/docs/core/result) libraries rely on lambdas as their primary operation mechanism. Functions like `map`, `map_err`, `and_then`, `or_else`, `expect`, `unwrap_or_else`, and more all take lambdas to handle success and failure cases.
-```vix
+Lambdas are central to error handling in Gix. The [core/Option](https://gixlanguage.github.io/docs/core/option) and [core/Result](https://gixlanguage.github.io/docs/core/result) libraries rely on lambdas as their primary operation mechanism. Functions like `map`, `map_err`, `and_then`, `or_else`, `expect`, `unwrap_or_else`, and more all take lambdas to handle success and failure cases.
+```gix
 var result = get_user(id)
     .map(lambda u: u.name)
     .unwrap_or_else(lambda e: "Unknown")
 ```
 
-See [core/Option](https://vixlanguage.github.io/docs/core/option) and [core/Result](https://vixlanguage.github.io/docs/core/result) for the full list of available functions.
+See [core/Option](https://gixlanguage.github.io/docs/core/option) and [core/Result](https://gixlanguage.github.io/docs/core/result) for the full list of available functions.
 
 #### Error handling
 
@@ -701,8 +699,8 @@ Error can be caused by lifetimes are presented in E80 to E89. Every error will s
 
 # Class Functions
 ## Function Visibility
-Class Functions. Functions that can be implemented inside vix's [hybred class](https://vixlanguage.github.io/docs/stmt/hybrid-classes). Aside of normal functions outside classes. Functions in the class can be called using different syntax, By accesing the function from the class it self. `ClassName.function_needed()` or by accesing from the variable it self `variable.function_needed()`. Functions are allowed to be implemented in a variable using `let var_name = ClassName.function_needed()` you can do var_name(10, 50) and automaticlly going to call that function. Example:
-```vix
+Class Functions. Functions that can be implemented inside gix's [hybred class](https://gixlanguage.github.io/docs/stmt/hybrid-classes). Aside of normal functions outside classes. Functions in the class can be called using different syntax, By accesing the function from the class it self. `ClassName.function_needed()` or by accesing from the variable it self `variable.function_needed()`. Functions are allowed to be implemented in a variable using `let var_name = ClassName.function_needed()` you can do var_name(10, 50) and automaticlly going to call that function. Example:
+```gix
 class Math()
     // Implement a function.
     func add(a, b)
@@ -727,7 +725,7 @@ print(multi_function(2, 2)) // 4
 ```
 
 To call a function from inside the class that exists inside it. You need to use `self.function_name()` Example:
-```vix
+```gix
 func print(a)
     printf("from outside the class: %s", a)
 end
@@ -742,7 +740,7 @@ class Example()
 ```
 
 **Info**: Private functions cannot be called inside another class implemention they need to be public example:
-```vix
+```gix
 class Example()
     func print(a)
         printf("%s", a)
@@ -761,7 +759,7 @@ Functions in the class can be only in 3 different types: `unsafe`/`public`/`priv
 
 #### Unsafe functions
 Unsafe functions that can be used for unsafe operations are not avalable in safe code. To implement unsafe function you'll need to use `unsafe` keyword before the function definition. Example:
-```vix
+```gix
 class Example()
     unsafe func example()
         // Unsafe code here
@@ -780,7 +778,7 @@ end
 
 #### Public functions
 Public functions are functions that can be called from anywhere. They visible from calling them in another class using `self.public_function()` that unlike `private` functions. To make a function public you need to attactch `public` keyword before the function definition. Example:
-```vix
+```gix
 class Example()
     public func example()
         // Public code here
@@ -796,7 +794,7 @@ end
 
 #### Private functions
 Private functions are functions that can only be called from inside the class it self. To make a function private function you need to not attatch any keyword before the function definition. Example:
-```vix
+```gix
 class Example()
     func example()
         // Private code here
@@ -812,7 +810,7 @@ end
 
 #### Specific functions & return types
 Functions allowed to use `Self` keyword as return type to the class. Only if the function has param or struct/enum attached to it. To store the data on return type you need to use `Self { ... }` and inside the brackets you need to put the data you want to store. Example:
-```vix
+```gix
 class Example(a, b)
     func example(x, y): Self
         return Self {
@@ -830,7 +828,7 @@ Example(10, 30)
 
 Function allowed too to use `self` keyword to accese function stored data in param/Struct/enum etc... Example `self.a = self.b`. Presinting self.feild of function fields. To implement `self` you need to use `self` keyword in function param: `func example(self)`. And it's allowed to be used in any all function implementions outside of orginal one. `self` can be in very other types like mutable/Immutable.
 
-```vix
+```gix
 class Example(a, b)
     func example(self, x, y)
         return self.a = self.b
@@ -849,7 +847,6 @@ Example(10, 30)
 Error can be caused by class functions are presented in E90 to E99. Every error will show the exact location in the code, the class function that caused the error, and a suggestion on how to fix it.
 
 | Error Code | Error | Description |
-
 
 ## Notes
 

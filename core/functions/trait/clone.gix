@@ -1,0 +1,3 @@
+public trait Clone:
+    func clone(self): self
+end
